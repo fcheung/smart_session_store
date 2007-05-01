@@ -1,0 +1,48 @@
+== SmartSessionStore
+
+A session store that avoids the pitfalls usually associated with concurrent access to the session (see BLOG_POST)
+
+Derived from SqlSessionStore, see http://railsexpress.de/blog/articles/2005/12/19/roll-your-own-sql-session-store
+
+== Step 1
+
+Generate your sessions table using rake db:sessions:create
+
+== Step 2
+
+Add the code below after the initializer config section:
+
+    ActionController::CgiRequest::DEFAULT_SESSION_OPTIONS.
+      update(:database_manager => SmartSessionStore)
+
+Finally, depending on your database type, add
+
+    SmartSessionStore.session_class = MysqlSession
+or
+
+    SmartSessionStore.session_class = PostgresqlSession
+or
+    SmartSessionStore.session_class = OracleSession
+
+after the initializer section in environment.rb
+
+== Step 3 (optional)
+
+If you want to use a database separate from your default one to store
+your sessions, specify a configuration in your database.yml file (say
+sessions), and establish the connection on SqlSession in
+environment.rb:
+
+   SqlSession.establish_connection :sessions
+
+
+== IMPORTANT NOTES
+
+1. You will need the binary drivers for Mysql or Postgresql.
+   These have been verified to work:
+
+   * ruby-postgres (0.7.1.2005.12.21) with postgreql 8.1
+   * ruby-mysql 2.7.1 with Mysql 4.1
+   * ruby-mysql 2.7.2 with Mysql 5.0
+
+2. Tests have been done with SqlLiteSession, SqlSession and MysqlSession. I don't have access to Oracle or Postgresql and so have not been able to test those. Feedback would be very much appreciated
