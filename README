@@ -1,6 +1,6 @@
 == SmartSessionStore
 
-A session store that avoids the pitfalls usually associated with concurrent access to the session (see BLOG_POST)
+A session store that avoids the pitfalls usually associated with concurrent access to the session (see http://about.82ask.com/2007/05/01/race-conditions-in-rails-sessions-and-how-to-fix-them/)
 
 Derived from SqlSessionStore, see http://railsexpress.de/blog/articles/2005/12/19/roll-your-own-sql-session-store
 
