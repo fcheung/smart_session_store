@@ -110,6 +110,7 @@ __END__
 
 # This software is released under the MIT license
 #
+# Copyright (c) 2007 Frederick Cheung
 # Copyright (c) 2005,2006 Stefan Kaes
 
 # Permission is hereby granted, free of charge, to any person obtaining
