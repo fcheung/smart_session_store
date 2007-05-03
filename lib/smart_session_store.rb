@@ -68,9 +68,13 @@ class SmartSessionStore
 
   private
   
-  def data= data
+  def data= data, marshalized = nil
     @data = data
-    @original_data = data.dup
+    if @session && @session.data
+      @original_marshalized_data = @session.data
+    else
+      @original_marshalized_data = marshalize( {})
+    end
     @data
   end
   
@@ -95,6 +99,12 @@ class SmartSessionStore
   end
   
   def save_session
+    if @original_marshalized_data
+      @original_data ||= unmarshalize @original_marshalized_data
+    else
+      @original_data = {}
+    end
+    
     return if @data == @original_data 
     SqlSession.transaction do
       merge_data

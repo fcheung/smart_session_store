@@ -49,6 +49,18 @@ class SmartSessionTest < Test::Unit::TestCase
     assert_final_session :key_to_preserve => 123, :favourite_food => 'pizza', :user_id => 789
   end
   
+  def test_deep_session_object
+    setup_base_session do |base_session|
+      base_data = base_session.restore
+      base_data[:flash] = {:notice => 'Please login'}
+    end
+    
+    setup_base_session do |base_session|
+      base_session.restore[:flash][:notice] = 'Thanks for logging in'
+    end
+    assert_final_session( :flash => {:notice => 'Thanks for logging in'})
+  end
+  
   private
   
   def assert_final_session expected
