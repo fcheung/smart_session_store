@@ -61,6 +61,33 @@ class SmartSessionTest < Test::Unit::TestCase
     assert_final_session( :flash => {:notice => 'Thanks for logging in'})
   end
   
+  class ClassWithOddEqual < Hash
+    attr_accessor :ivar
+  end
+  
+  def test_objects_with_odd_equal
+    w = ClassWithOddEqual.new
+    w[:name] = 'paul'
+    
+    setup_base_session do |base_session|
+      base_data = base_session.restore
+      base_data[:flash] = w
+    end
+    
+    w.ivar = 123
+    
+    setup_base_session do |base_session|
+      base_data = base_session.restore
+      base_data[:flash] = w
+    end
+    
+    setup_base_session do |base_session|
+      base_data = base_session.restore
+      assert_equal base_data[:flash].ivar, 123
+    end
+    
+  end
+  
   private
   
   def assert_final_session expected
