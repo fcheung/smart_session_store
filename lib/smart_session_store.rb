@@ -86,27 +86,29 @@ class SmartSessionStore
     Base64.encode64(Marshal.dump(data))
   end
 
-  def merge_data
+  
+  def save_session
     if @original_marshalized_data
       @original_data ||= unmarshalize @original_marshalized_data
     else
       @original_data = {}
     end
     @data ||= {}
+    
     deleted_keys = @original_data.keys - @data.keys
-    fresh_session = @@session_class.find_session(@session.session_id, true)
-    if fresh_session && fresh_data = unmarshalize(fresh_session.data)
-      deleted_keys.each {|k| fresh_data.delete k}
-      @data.each {|k,v| fresh_data[k] = v unless Marshal.dump( @original_data[k]) == Marshal.dump( v)}
-      @data = fresh_data
-      @session = fresh_session
-    end
-  end
-  
-  def save_session
-    return if marshalize(@data) == @original_marshalized_data 
+    changed_keys = []
+    @data.each {|k,v| changed_keys << k if Marshal.dump( @original_data[k]) != Marshal.dump( v)}
+    
+    return if changed_keys.empty? && deleted_keys.empty?
+
     SqlSession.transaction do
-      merge_data
+      fresh_session = @@session_class.find_session(@session.session_id, true)
+      if fresh_session && fresh_session.data != @original_marshalized_data && fresh_data = unmarshalize(fresh_session.data)
+        deleted_keys.each {|k| fresh_data.delete k}
+        changed_keys.each {|k| fresh_data[k] = @data[k]}
+        @data = fresh_data
+        @session = fresh_session
+      end
       @session.update_session(marshalize(@data))
     end
   end
