@@ -14,14 +14,6 @@ require 'sqlite3'
 # you will need to change the SQL statments in the code.
 
 class SqliteSession
-
-  # if you need Rails components, and you have a pages which create
-  # new sessions, and embed components insides this pages that need
-  # session access, then you *must* set +eager_session_creation+ to
-  # true (as of Rails 1.0).
-  cattr_accessor :eager_session_creation
-  @@eager_session_creation = false
-
   attr_accessor :id, :session_id, :data
 
   def initialize(session_id, data)
@@ -61,12 +53,6 @@ class SqliteSession
     def create_session(session_id, data)
       session_id = SQLite3::Database.quote(session_id)
       new_session = new(session_id, data)
-      if @@eager_session_creation
-        connection = session_connection
-        connection.execute("INSERT INTO sessions ('id', `updated_at`, `session_id`, `data`) VALUES (NULL, datetime('now'), '#{session_id}', '#{SQLite3::Database.quote(data)}')")
-        new_session.id = connection.last_insert_row_id()
-      end
-      new_session
     end
 
     # delete all sessions meeting a given +condition+. it is the

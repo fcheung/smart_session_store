@@ -17,13 +17,6 @@ end
 
 class PostgresqlSession
 
-  # if you need Rails components, and you have a pages which create
-  # new sessions, and embed components insides these pages that need
-  # session access, then you *must* set +eager_session_creation+ to
-  # true (as of Rails 1.0). Not needed for Rails 1.1 and up.
-  cattr_accessor :eager_session_creation
-  @@eager_session_creation = false
-
   attr_accessor :id, :session_id, :data
 
   def initialize(session_id, data)
@@ -65,12 +58,6 @@ class PostgresqlSession
       # postgres adds string delimiters when quoting, so strip them off
       session_id = PGconn::quote(session_id)[1..-2]
       new_session = new(session_id, data)
-      if @@eager_session_creation
-        connection = session_connection
-        connection.query("INSERT INTO sessions (\"updated_at\", \"session_id\", \"data\") VALUES (NOW(), '#{session_id}', #{PGconn::quote(data)})")
-        new_session.id = connection.lastval
-      end
-      new_session
     end
 
     # delete all sessions meeting a given +condition+. it is the
