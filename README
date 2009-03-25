@@ -10,10 +10,8 @@ Generate your sessions table using rake db:sessions:create
 
 == Step 2
 
-Add the code below after the initializer config section:
-
-    ActionController::CgiRequest::DEFAULT_SESSION_OPTIONS.
-      update(:database_manager => SmartSessionStore)
+Add the code below in an initializer
+  ActionController::Base.session_store = :smart_session_store
 
 Finally, depending on your database type, add
 
@@ -22,7 +20,7 @@ or
 
     SmartSessionStore.session_class = PostgresqlSession
 or
-    SmartSessionStore.session_class = OracleSession
+    SmartSessionStore.session_class = SqliteSession
 
 after the initializer section in environment.rb
 
@@ -45,4 +43,4 @@ environment.rb:
    * ruby-mysql 2.7.1 with Mysql 4.1
    * ruby-mysql 2.7.2 with Mysql 5.0
 
-2. Tests have been done with SqlLiteSession, SqlSession and MysqlSession. I don't have access to Oracle or Postgresql and so have not been able to test those. Feedback would be very much appreciated
+2. Tests have been done with SqlLiteSession, SqlSession and MysqlSession. I have not been able to test others. Feedback would be very much appreciated
