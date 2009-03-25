@@ -1,14 +1,15 @@
 require 'active_record'
+require 'cgi'
+require 'cgi/session'
 require 'base64'
 require 'pp'
 # +SmartSessionStore+ is a session store that strives to correctly handle session storage in the face of multiple
 # concurrent actions accessing the session. It is derived from Stephen Kaes' +SqlSessionStore+, a stripped down,
 # optimized for speed version of class +ActiveRecordStore+.
 #
-# This version is the one used for rails > 2.3
-class SmartSessionStore < ActionController::Session::AbstractStore
+# LegacySmartSessionStore implements the session store interface used by versions of rails prior to 2.3
+class LegacySmartSessionStore
   include SessionSmarts
-  
   # The class to be used for creating, retrieving and updating sessions.
   # Defaults to SmartSessionStore::Session, which is derived from +ActiveRecord::Base+.
   #
@@ -21,41 +22,66 @@ class SmartSessionStore < ActionController::Session::AbstractStore
   cattr_accessor :session_class
   @@session_class = SqlSession
 
-  SESSION_RECORD_KEY = 'rack.session.record'.freeze
-    
+  # Create a new SmartSessionStore instance.
+  #
+  # +session+ is the session for which this instance is being created.
+  #
+  # +option+ is currently ignored as no options are recognized.
+
+  def initialize(session, option=nil)
+    if @session = @@session_class.find_session(session.session_id)
+      self.data = unmarshalize(@session.data)
+    else
+      @session = @@session_class.create_session(session.session_id, marshalize({}))
+      self.data = {}
+    end
+  end
+
+  # Update the database and disassociate the session object
+  def close
+    if @session
+      finalize_session
+      @session = nil
+    end
+  end
+
+  # Delete the current session, disassociate and destroy session object
+  def delete
+    if @session
+      @session.destroy
+      @session = nil
+    end
+  end
+
+  # Restore session data from the session object
+  def restore
+    if @session
+      self.data = unmarshalize(@session.data)
+    end
+  end
+
+  # Save session data in the session object
+  def update
+    if @session
+      finalize_session
+    end
+  end
+
   private
   
-  def get_session(env, sid)
-    ActiveRecord::Base.silence do
-      sid ||= generate_sid
-      session = find_session(sid)
-      env[SESSION_RECORD_KEY] = session
-      [sid, unmarshalize(session.data)]
-    end
+  def data= data
+    @data = data
   end
-
-  def set_session(env, sid, session_data)
-    ActiveRecord::Base.silence do
-      record = env[SESSION_RECORD_KEY] ||= find_session(sid)
-
-      data, session = save_session(record, session_data)
-      env[SESSION_RECORD_KEY] = session
-    end
-
-    return true
+  
+  def finalize_session
+    @data, @session = save_session(@session, @data || {})
   end
-
-  def find_session(id)
-    @@session_class.find_by_session_id(id) ||
-      @@session_class.new(:session_id => id, :data => marshalize({}))
-  end
-    
 end
 
 __END__
 
 # This software is released under the MIT license
-# Copyright (c) 2007-2009 Frederick Cheung
+# Copyright (c) 2007 Frederick Cheung
 # Copyright (c) 2005,2006 Stefan Kaes
 
 # Permission is hereby granted, free of charge, to any person obtaining

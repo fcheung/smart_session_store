@@ -1,30 +1,43 @@
-ENV['RAILS_ENV'] ||= 'mysql'
-require File.dirname(__FILE__) + '/rails_root/config/environment.rb'
+$KCODE = 'u'
+require 'jcode'
+ENV['TZ'] = 'UTC'
+require 'rubygems'
+
+RAILS_VERSION='2.3.2' #the version of rails the tests run against
+gem 'activerecord', RAILS_VERSION
+gem 'activesupport', RAILS_VERSION
+gem 'actionpack', RAILS_VERSION
+
+RAILS_ENV = 'test'
  
-# Load the testing framework
-require 'test_help'
-silence_warnings { RAILS_ENV = ENV['RAILS_ENV'] }
- 
-# Run the migrations
-ActiveRecord::Migrator.migrate("#{RAILS_ROOT}/db/migrate")
- 
-# Setup the fixtures path
+require 'test/unit'
+require 'active_support'
 require 'active_record'
-require 'active_record/base'
+require 'action_pack'
+require 'action_controller'
+
+require 'active_support/test_case'
 require 'active_record/fixtures'
- 
-Test::Unit::TestCase.fixture_path = File.dirname(__FILE__) + "/fixtures/"
-$LOAD_PATH.unshift(Test::Unit::TestCase.fixture_path)
- 
-class Test::Unit::TestCase #:nodoc:
-  def create_fixtures(*table_names)
-    if block_given?
-      Fixtures.create_fixtures(Test::Unit::TestCase.fixture_path, table_names) { yield }
-    else
-      Fixtures.create_fixtures(Test::Unit::TestCase.fixture_path, table_names)
-    end
+
+if defined? ActiveRecord::TestFixtures # this is rails 2.3+
+  class ActiveSupport::TestCase
+    include ActiveRecord::TestFixtures
+    self.fixture_path = File.dirname(__FILE__) + "/fixtures/"
+    self.use_instantiated_fixtures  = false
+    self.use_transactional_fixtures = true
   end
- 
-  self.use_transactional_fixtures = false
-  self.use_instantiated_fixtures  = false
+
+  def create_fixtures(*table_names, &block)
+    Fixtures.create_fixtures(ActiveSupport::TestCase.fixture_path, table_names, {}, &block)
+  end
+else
+  ActiveSupport::TestCase.fixture_path = File.dirname(__FILE__) + "/fixtures/"
 end
+
+RAILS_DEFAULT_LOGGER = ActiveRecord::Base.logger = Logger.new(File.dirname(__FILE__) + "/debug.log")
+ActiveSupport::Dependencies.load_paths.unshift(File.dirname(__FILE__)+'/../lib')
+config = YAML::load(IO.read(File.dirname(__FILE__) + '/database.yml'))
+ActiveRecord::Base.configurations = {'test' => config['mysql']}
+ActiveRecord::Base.establish_connection(ActiveRecord::Base.configurations['test'])
+
+load(File.dirname(__FILE__) + "/schema.rb")
