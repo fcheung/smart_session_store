@@ -34,10 +34,12 @@ else
   ActiveSupport::TestCase.fixture_path = File.dirname(__FILE__) + "/fixtures/"
 end
 
+database_type = ENV['DATABASE'] || 'mysql'
+
 RAILS_DEFAULT_LOGGER = ActiveRecord::Base.logger = Logger.new(File.dirname(__FILE__) + "/debug.log")
 ActiveSupport::Dependencies.load_paths.unshift(File.dirname(__FILE__)+'/../lib')
 config = YAML::load(IO.read(File.dirname(__FILE__) + '/database.yml'))
-ActiveRecord::Base.configurations = {'test' => config['mysql']}
+ActiveRecord::Base.configurations = {'test' => config[database_type]}
 ActiveRecord::Base.establish_connection(ActiveRecord::Base.configurations['test'])
 
 load(File.dirname(__FILE__) + "/schema.rb")

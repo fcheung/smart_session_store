@@ -8,3 +8,8 @@ mysql:
   :username: smart_session
   :password:
   :database: smart_session
+
+postgresql:
+  :adapter: postgresql
+  :username: smart_session
+  :database: smart_session
