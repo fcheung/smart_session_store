@@ -20,6 +20,7 @@ class PostgresqlSession
 
   def initialize(session_id, data)
     @session_id = session_id
+    @quoted_session_id = self.class.session_connection.quote(session_id)
     @data = data
     @id = nil
   end
@@ -37,16 +38,15 @@ class PostgresqlSession
     # outside this class.
     def find_session(session_id, lock = false)
       connection = session_connection
-      # postgres adds string delimiters when quoting, so strip them off
-      session_id = PGconn::quote(session_id)[1..-2]
-      result = connection.query("SELECT id, data FROM sessions WHERE session_id='#{session_id}' LIMIT 1"  + (lock ? ' FOR UPDATE' : '') )
+      quoted_session_id = connection.quote(session_id)
+      result = connection.query("SELECT id, data FROM sessions WHERE session_id=#{quoted_session_id} LIMIT 1"  + (lock ? ' FOR UPDATE' : '') )
       my_session = nil
-      # each is used below, as other methods barf on my 64bit linux machine
-      # I suspect this to be a bug in mysql-ruby
-      result.each do |row|
-        my_session = new(session_id, row[1])
-        my_session.id = row[0]
+
+      if result[0] && result[0].size == 2
+        my_session = new(session_id, result[0][1])
+        my_session.id = result[0][0]
       end
+
       result.clear
       my_session
     end
@@ -54,8 +54,6 @@ class PostgresqlSession
     # create a new session with given +session_id+ and +data+
     # and save it immediately to the database
     def create_session(session_id, data)
-      # postgres adds string delimiters when quoting, so strip them off
-      session_id = PGconn::quote(session_id)[1..-2]
       new_session = new(session_id, data)
     end
 
@@ -76,21 +74,23 @@ class PostgresqlSession
   # column `updated_at` will be done by the database itself
   def update_session(data)
     connection = self.class.session_connection
+    quoted_data = connection.quote(data)
+
     if @id
       # if @id is not nil, this is a session already stored in the database
       # update the relevant field using @id as key
-      connection.query("UPDATE sessions SET \"updated_at\"=NOW(), \"data\"=#{PGconn::quote(data)} WHERE id=#{@id}")
+      connection.query("UPDATE sessions SET \"updated_at\"=NOW(), \"data\"=#{quoted_data} WHERE id=#{@id}")
     else
       # if @id is nil, we need to create a new session in the database
       # and set @id to the primary key of the inserted record
-      connection.query("INSERT INTO sessions (\"updated_at\", \"session_id\", \"data\") VALUES (NOW(), '#{@session_id}', #{PGconn::quote(data)})")
-      @id = connection.lastval rescue connection.query("select lastval()").first[0]
+      connection.query("INSERT INTO sessions (\"updated_at\", \"session_id\", \"data\") VALUES (NOW(), #{@quoted_session_id}, #{quoted_data})")
+      @id = connection.lastval rescue connection.query("select lastval()")[0][0].to_i
     end
   end
 
   # destroy the current session
   def destroy
-    self.class.delete_all("session_id=#{PGconn.quote(session_id)}")
+    self.class.delete_all("session_id=#{@quoted_session_id}")
   end
 
 end
