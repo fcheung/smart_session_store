@@ -10,7 +10,7 @@ class SmartSessionTest < ActiveSupport::TestCase
 
   SessionHash = ActionController::Session::AbstractStore::SessionHash
   # DispatcherApp = ActionController::Dispatcher.new
-  SmartSessionStoreApp = SmartSessionStore.new(nil, :key => SessionKey, :secret => SessionSecret)
+  SmartSessionStoreApp = SmartSessionStore.new(nil, :key => SessionKey, :secret => SessionSecret, :session_class => TEST_SESSION_CLASS)
   
   #short circuit this so that the session id us our static one
   def SmartSessionStoreApp.load_session(env)

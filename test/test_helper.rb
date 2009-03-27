@@ -34,10 +34,19 @@ else
   ActiveSupport::TestCase.fixture_path = File.dirname(__FILE__) + "/fixtures/"
 end
 
-database_type = ENV['DATABASE'] || 'mysql'
+
 
 RAILS_DEFAULT_LOGGER = ActiveRecord::Base.logger = Logger.new(File.dirname(__FILE__) + "/debug.log")
 ActiveSupport::Dependencies.load_paths.unshift(File.dirname(__FILE__)+'/../lib')
+
+database_type = ENV['DATABASE'] || 'mysql'
+
+TEST_SESSION_CLASS = case database_type
+  when 'mysql' then MysqlSession
+  when 'postgresql' then PostgresqlSession
+  when 'sqlite3' then SqliteSession
+end
+
 config = YAML::load(IO.read(File.dirname(__FILE__) + '/database.yml'))
 ActiveRecord::Base.configurations = {'test' => config[database_type]}
 ActiveRecord::Base.establish_connection(ActiveRecord::Base.configurations['test'])

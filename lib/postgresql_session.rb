@@ -1,8 +1,7 @@
-require 'postgres'
-
-# allow access to the real Mysql connection
-class ActiveRecord::ConnectionAdapters::PostgreSQLAdapter
-  attr_reader :connection
+begin
+  require 'pg'
+rescue LoadError
+  require 'postgres'
 end
 
 # PostgresqlSession is a down to the bare metal session store
