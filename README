@@ -33,13 +33,24 @@ environment.rb:
 
    SqlSession.establish_connection :sessions
 
+== Testing
+
+To run tests with a certain database, set the DATABASE attribute.
+You may need to configure the database.yml or your database server.
+
+For example:
+
+   rake test    # defaults to mysql
+   rake test DATABASE=postgresql
 
 == IMPORTANT NOTES
 
 1. You will need the binary drivers for Mysql or Postgresql.
    These have been verified to work:
 
-   * ruby-postgres (0.7.1.2005.12.21) with postgreql 8.1
+   * ruby-postgres (0.7.1.2005.12.21) with PostgreSQL 8.1
+   * postgres (0.7.9.2008.01.28) with PostgreSQL 8.3
+   * pg (0.7.9.2008.10.13) with PostgreSQL 8.3
    * ruby-mysql 2.7.1 with Mysql 4.1
    * ruby-mysql 2.7.2 with Mysql 5.0
 
