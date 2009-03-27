@@ -1,10 +1,13 @@
 require File.join(File.dirname(__FILE__), '../test_helper')
 
+require 'action_controller'
+
 Struct.new 'CGISession', :session_id
 class LegacySmartSessionTest < ActiveSupport::TestCase
   fixtures :sessions
   # Replace this with your real tests.
   def setup
+    LegacySmartSessionStore.session_class = TEST_SESSION_CLASS
     @cgi_session = Struct::CGISession.new '123456'  
   end
   
