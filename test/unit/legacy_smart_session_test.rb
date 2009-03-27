@@ -1,7 +1,5 @@
 require File.join(File.dirname(__FILE__), '../test_helper')
 
-require 'action_controller'
-
 Struct.new 'CGISession', :session_id
 class LegacySmartSessionTest < ActiveSupport::TestCase
   fixtures :sessions
