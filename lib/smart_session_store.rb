@@ -46,8 +46,8 @@ class SmartSessionStore < ActionController::Session::AbstractStore
   end
 
   def find_session(id)
-    @@session_class.find_by_session_id(id) ||
-      @@session_class.new(:session_id => id, :data => marshalize({}))
+    @@session_class.find_session(id) ||
+      @@session_class.create_session(id, marshalize({}))
   end
     
 end

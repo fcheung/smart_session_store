@@ -10,8 +10,8 @@ class SmartSessionTest < ActiveSupport::TestCase
 
   SessionHash = ActionController::Session::AbstractStore::SessionHash
   # DispatcherApp = ActionController::Dispatcher.new
-  SmartSessionStoreApp = SmartSessionStore.new(nil, :key => SessionKey, :secret => SessionSecret, :session_class => TEST_SESSION_CLASS)
-  
+  SmartSessionStoreApp = SmartSessionStore.new(nil, :key => SessionKey, :secret => SessionSecret)
+
   #short circuit this so that the session id us our static one
   def SmartSessionStoreApp.load_session(env)
     sid, session = get_session(env, '123456')
@@ -20,6 +20,7 @@ class SmartSessionTest < ActiveSupport::TestCase
   # Replace this with your real tests.
   def setup
     @env = { ActionController::Session::AbstractStore::ENV_SESSION_KEY => '123456',  ActionController::Session::AbstractStore::ENV_SESSION_OPTIONS_KEY => ActionController::Session::AbstractStore::DEFAULT_OPTIONS}
+    SmartSessionStore.session_class = TEST_SESSION_CLASS
   end
   
   def test_simultaneous_access_session_already_created
