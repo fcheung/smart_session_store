@@ -43,6 +43,11 @@ For example:
    rake test    # defaults to mysql
    rake test DATABASE=postgresql
 
+
+== Performance Implications
+
+There's no such thing as a free lunch. Whenever you make changes to the session you'll incur a small extra hit: we lock the current session row, we reload it to determine if there is updated data and we merge the changes before doing the actual save. On the flipside, we only save the session at all if changes have been made.
+
 == IMPORTANT NOTES
 
 1. You will need the binary drivers for Mysql or Postgresql.
