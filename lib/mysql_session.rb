@@ -30,6 +30,15 @@ class MysqlSession
       SqlSession.connection.connection
     end
 
+    def query(sql)
+      connection = session_connection
+      begin
+        connection.query sql
+      rescue Exception => e
+        message = "#{e.class.name}: #{e.message}: #{sql}"
+        raise ActiveRecord::StatementInvalid, message
+      end
+    end
     # try to find a session with a given +session_id+. returns nil if
     # no such session exists. note that we don't retrieve
     # +created_at+ and +updated_at+ as they are not accessed anywhyere
@@ -38,7 +47,7 @@ class MysqlSession
       connection = session_connection
       connection.query_with_result = true
       session_id = Mysql::quote(session_id)
-      result = connection.query("SELECT id, data FROM sessions WHERE `session_id`='#{session_id}' LIMIT 1" + (lock ? ' FOR UPDATE' : ''))
+      result = query("SELECT id, data FROM sessions WHERE `session_id`='#{session_id}' LIMIT 1" + (lock ? ' FOR UPDATE' : ''))
       my_session = nil
       # each is used below, as other methods barf on my 64bit linux machine
       # I suspect this to be a bug in mysql-ruby
@@ -62,9 +71,9 @@ class MysqlSession
     # caller's responsibility to pass a valid sql condition
     def delete_all(condition=nil)
       if condition
-        session_connection.query("DELETE FROM sessions WHERE #{condition}")
+        query("DELETE FROM sessions WHERE #{condition}")
       else
-        session_connection.query("DELETE FROM sessions")
+        query("DELETE FROM sessions")
       end
     end
 
@@ -78,11 +87,11 @@ class MysqlSession
     if @id
       # if @id is not nil, this is a session already stored in the database
       # update the relevant field using @id as key
-      connection.query("UPDATE sessions SET `updated_at`=NOW(), `data`='#{Mysql::quote(data)}' WHERE id=#{@id}")
+      self.class.query("UPDATE sessions SET `updated_at`=NOW(), `data`='#{Mysql::quote(data)}' WHERE id=#{@id}")
     else
       # if @id is nil, we need to create a new session in the database
       # and set @id to the primary key of the inserted record
-      connection.query("INSERT INTO sessions (`updated_at`, `session_id`, `data`) VALUES (NOW(), '#{@session_id}', '#{Mysql::quote(data)}')")
+      self.class.query("INSERT INTO sessions (`updated_at`, `session_id`, `data`) VALUES (NOW(), '#{@session_id}', '#{Mysql::quote(data)}')")
       @id = connection.insert_id
     end
   end
