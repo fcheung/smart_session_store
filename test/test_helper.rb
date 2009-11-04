@@ -18,6 +18,8 @@ require 'action_controller'
 
 require 'active_support/test_case'
 require 'active_record/fixtures'
+require 'action_pack'
+require 'action_controller'
 
 if defined? ActiveRecord::TestFixtures # this is rails 2.3+
   class ActiveSupport::TestCase

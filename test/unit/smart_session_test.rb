@@ -21,7 +21,7 @@ class SmartSessionTest < ActiveSupport::TestCase
   def setup
     @env = { ActionController::Session::AbstractStore::ENV_SESSION_KEY => '123456',  ActionController::Session::AbstractStore::ENV_SESSION_OPTIONS_KEY => ActionController::Session::AbstractStore::DEFAULT_OPTIONS}
     SmartSessionStore.session_class = TEST_SESSION_CLASS
-  end
+  end  
   
   def test_simultaneous_access_session_already_created
     setup_base_session do |base_session|
@@ -126,5 +126,124 @@ class SmartSessionTest < ActiveSupport::TestCase
     
   end
 end
+
+
+ActionController::Base.session_store = nil
+class FullStackTest < ActionController::IntegrationTest
+  fixtures :sessions
+  
+  DispatcherApp = ActionController::Dispatcher.new
+  SessionApp = SmartSessionStore.new(DispatcherApp,   :key => '_session_id')
+
+  def setup
+    @integration_session = open_session(SessionApp)
+  end
+    
+  class TestController < ActionController::Base
+
+    def set_session_value
+      session[:foo] = params[:foo] || "bar"
+      head :ok
+    end
+
+    def get_session_value
+      render :text => "foo: #{session[:foo].inspect}"
+    end
+
+    def get_session_id
+      session[:foo]
+      render :text => "#{request.session_options[:id]}"
+    end
+
+    def call_reset_session
+      session[:foo]
+      reset_session
+      session[:foo] = "baz"
+      head :ok
+    end
+
+    def rescue_action(e) raise end
+  end
+  
+  def test_setting_and_getting_session_value
+    with_test_route_set do
+      get '/set_session_value'
+      assert_response :success
+      assert cookies['_session_id']
+
+      get '/get_session_value'
+      assert_response :success
+      assert_equal 'foo: "bar"', response.body
+
+      get '/set_session_value', :foo => "baz"
+      assert_response :success
+      assert cookies['_session_id']
+
+      get '/get_session_value'
+      assert_response :success
+      assert_equal 'foo: "baz"', response.body
+    end
+  end
+
+  def test_getting_nil_session_value
+    with_test_route_set do
+      get '/get_session_value'
+      assert_response :success
+      assert_equal 'foo: nil', response.body
+    end
+  end
+
+  def test_setting_session_value_after_session_reset
+    with_test_route_set do
+      get '/set_session_value'
+      assert_response :success
+      assert cookies['_session_id']
+      session_id = cookies['_session_id']
+
+      get '/call_reset_session'
+      assert_response :success
+      assert_not_equal [], headers['Set-Cookie']
+
+      get '/get_session_value'
+      assert_response :success
+      assert_equal 'foo: "baz"', response.body
+
+      get '/get_session_id'
+      assert_response :success
+      assert_not_equal session_id, response.body
+    end
+  end
+
+  def test_getting_session_id
+    with_test_route_set do
+      get '/set_session_value'
+      assert_response :success
+      assert cookies['_session_id']
+      session_id = cookies['_session_id']
+
+      get '/get_session_id'
+      assert_response :success
+      assert_equal session_id, response.body
+    end
+  end
+
+
+
+
+  private
+    def with_test_route_set
+      with_routing do |set|
+        set.draw do |map|
+          map.with_options :controller => "full_stack_test/test" do |c|
+            c.connect "/:action"
+          end
+        end
+        yield
+      end
+    end
+  
+end
+
+
 
 end

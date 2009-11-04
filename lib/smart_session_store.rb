@@ -36,7 +36,7 @@ class SmartSessionStore < ActionController::Session::AbstractStore
 
   def set_session(env, sid, session_data)
     ActiveRecord::Base.silence do
-      record = env[SESSION_RECORD_KEY] ||= find_session(sid)
+      record = get_session_model(env, sid)
 
       data, session = save_session(record, session_data)
       env[SESSION_RECORD_KEY] = session
@@ -45,6 +45,14 @@ class SmartSessionStore < ActionController::Session::AbstractStore
     return true
   end
 
+  def get_session_model(env, sid)
+    if env[ENV_SESSION_OPTIONS_KEY][:id].nil?
+      env[SESSION_RECORD_KEY] = find_session(sid)
+    else
+      env[SESSION_RECORD_KEY] ||= find_session(sid)
+    end
+  end
+  
   def find_session(id)
     @@session_class.find_session(id) ||
       @@session_class.create_session(id, marshalize({}))
