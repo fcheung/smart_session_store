@@ -24,7 +24,18 @@ or
 
 after the initializer section in environment.rb
 
-== Step 3 (optional)
+== Step 3
+
+If you are running Rails 2.3 or later you need to tell Rails that your session store uses the database. If you don't then your app will use up all the connections in its connection pool and many requests will suffer from a 5 second delay. The Rails initializer special cases the ActiveRecordStore session store (in initialize_database_middleware). You can either change references there to SmartSessionStore or you can put
+
+ActionController::Dispatcher.middleware.delete "ActiveRecord::ConnectionAdapters::ConnectionManagement"
+ActionController::Dispatcher.middleware.delete "ActiveRecord::QueryCache"
+ActionController::Dispatcher.middleware.insert_before :"SmartSessionStore", ActiveRecord::ConnectionAdapters::ConnectionManagement
+ActionController::Dispatcher.middleware.insert_before :"SmartSessionStore", ActiveRecord::QueryCache
+
+at the bottom of environment.rb
+
+== Step 4 (optional)
 
 If you want to use a database separate from your default one to store
 your sessions, specify a configuration in your database.yml file (say
