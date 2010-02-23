@@ -48,6 +48,23 @@ class SqliteSession
       my_session
     end
 
+    def find_by_primary_id(primary_key_id, lock = false)
+      if primary_key_id
+        connection = session_connection
+        result = connection.execute("SELECT session_id, data FROM sessions WHERE `id`='#{primary_key_id}'")
+        my_session = nil
+        # each is used below, as other methods barf on my 64bit linux machine
+        # I suspect this to be a bug in mysql-ruby
+        result.each do |row|
+          my_session = new(row[0], row[1])
+          my_session.id = primary_key_id
+        end
+        my_session
+      else
+        nil
+      end
+    end
+    
     # create a new session with given +session_id+ and +data+
     # and save it immediately to the database
     def create_session(session_id, data)

@@ -51,6 +51,24 @@ class PostgresqlSession
       my_session
     end
 
+    def find_by_primary_id(primary_key_id, lock = false)
+      if primary_key_id
+        connection = session_connection
+        quoted_session_id = connection.quote(session_id)
+        result = connection.query("SELECT session_id, data FROM sessions WHERE id=#{primary_key_id} LIMIT 1"  + (lock ? ' FOR UPDATE' : '') )
+        my_session = nil
+
+        if result[0] && result[0].size == 2
+          my_session = new(result[0][0], result[0][1])
+          my_session.id =primary_key_id
+        end
+
+        result.clear
+        my_session
+      else
+        nil
+      end
+    end
     # create a new session with given +session_id+ and +data+
     # and save it immediately to the database
     def create_session(session_id, data)

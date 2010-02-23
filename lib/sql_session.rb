@@ -26,4 +26,22 @@ class SqlSession < ActiveRecord::Base
   def update_session(data)
     update_attribute('data', data)
   end
+  
+  # update session data using optimistic locking - return true on success, false if the record was stale
+  def update_session_optimistically data
+    update_attribute('data', data)
+    true
+  rescue ActiveRecord::StaleObjectError
+    false
+  end
+  
+  #find the session record by its primary key id as opposed to its session id
+  def self.find_by_primary_id(primary_key_id, lock=false)
+    if primary_key_id
+      find primary_key_id, :lock => lock
+    else
+      nil
+    end
+  end
+  
 end

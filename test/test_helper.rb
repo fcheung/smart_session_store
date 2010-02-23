@@ -1,20 +1,14 @@
 $KCODE = 'u'
 require 'jcode'
 ENV['TZ'] = 'UTC'
-require 'rubygems'
-
-RAILS_VERSION='2.3.2' #the version of rails the tests run against
-gem 'activerecord', RAILS_VERSION
-gem 'activesupport', RAILS_VERSION
-gem 'actionpack', RAILS_VERSION
-
-RAILS_ENV = 'test'
- 
 require 'test/unit'
+require 'rubygems'
+require '../rails_version.rb'
 require 'active_support'
 require 'active_record'
-require 'action_pack'
-require 'action_controller'
+require 'active_record/fixtures'
+require 'mocha'
+RAILS_ENV = 'test'
 
 require 'active_support/test_case'
 require 'active_record/fixtures'
@@ -27,6 +21,13 @@ if defined? ActiveRecord::TestFixtures # this is rails 2.3+
     self.fixture_path = File.dirname(__FILE__) + "/fixtures/"
     self.use_instantiated_fixtures  = false
     self.use_transactional_fixtures = true
+
+    def with_locking
+      SqlSession.lock_optimistically = true
+      yield
+    ensure
+      SqlSession.lock_optimistically = false
+    end
   end
 
   def create_fixtures(*table_names, &block)
@@ -54,3 +55,5 @@ TEST_SESSION_CLASS = case database_type
 end
 
 load(File.dirname(__FILE__) + "/schema.rb")
+SqlSession.lock_optimistically = false
+

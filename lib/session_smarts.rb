@@ -17,17 +17,63 @@ module SessionSmarts
     
     return nil if changed_keys.empty? && deleted_keys.empty?
 
-    SqlSession.transaction do
-      fresh_session = session_class.find_session(session.session_id, true)
-      if fresh_session && fresh_session.data != original_marshalled_data && fresh_data = unmarshalize(fresh_session.data)
+    if SqlSession.locking_enabled?
+      begin
+        if session.id
+          while !session.update_session_optimistically(marshalize(data))        
+            fresh_session = get_fresh_session session, false
+            session,data = merge_sessions fresh_session, session, original_marshalled_data, changed_keys, deleted_keys, data
+          end
+        else
+          session.update_session(marshalize(data))
+        end
+      rescue ActiveRecord::StatementInvalid => e
+        if e.message =~ /Duplicate entry/
+          fresh_session = get_fresh_session session, false
+          session,data = merge_sessions fresh_session, session, original_marshalled_data, changed_keys, deleted_keys, data
+          retry
+        end
+        raise
+      end  
+    else
+      begin
+        SqlSession.transaction do
+          fresh_session = get_fresh_session session, true
+          session, data = merge_sessions fresh_session, session, original_marshalled_data, changed_keys, deleted_keys, data
+          session.update_session(marshalize(data))
+        end
+      rescue ActiveRecord::StatementInvalid => e
+        if e.message =~ /Duplicate entry/
+          retry
+        end
+        raise
+      end
+    end  
+
+ 
+    return data, session
+  end
+  
+  
+  def get_fresh_session session, lock
+    if session.id
+      fresh_session = session_class.find_by_primary_id session.id, lock
+    else
+      fresh_session = session_class.find_session session.session_id, false
+    end
+  end
+  
+  def merge_sessions fresh_session, session, original_marshalled_data, changed_keys, deleted_keys, data
+    if fresh_session
+      data_changed = fresh_session.data != original_marshalled_data
+      if (data_changed || SqlSession.locking_enabled?) && fresh_data = unmarshalize(fresh_session.data)
         deleted_keys.each {|k| fresh_data.delete k}
         changed_keys.each {|k| fresh_data[k] = data[k]}
         data = fresh_data
         session = fresh_session
       end
-      session.update_session(marshalize(data))
     end
-    return data, session
+    return session, data
   end
 end
 

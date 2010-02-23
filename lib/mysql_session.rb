@@ -15,12 +15,13 @@ end
 
 class MysqlSession
 
-  attr_accessor :id, :session_id, :data
+  attr_accessor :id, :session_id, :data, :lock_version
 
   def initialize(session_id, data)
     @session_id = session_id
     @data = data
     @id = nil
+    @lock_version = 0
   end
 
   class << self
@@ -44,21 +45,32 @@ class MysqlSession
     # +created_at+ and +updated_at+ as they are not accessed anywhyere
     # outside this class
     def find_session(session_id, lock = false)
+      find("`session_id`='#{Mysql.quote session_id}' LIMIT 1" + (lock ? ' FOR UPDATE' : ''))
+    end
+    
+    def find_by_primary_id(primary_key_id, lock = false)
+      if primary_key_id
+        find("`id`='#{primary_key_id}'" + (lock ? ' FOR UPDATE' : ''))
+      else
+        nil
+      end
+    end
+    
+    def find(conditions)
       connection = session_connection
       connection.query_with_result = true
-      session_id = Mysql::quote(session_id)
-      result = query("SELECT id, data FROM sessions WHERE `session_id`='#{session_id}' LIMIT 1" + (lock ? ' FOR UPDATE' : ''))
-      my_session = nil
+      result = query("SELECT session_id, data,id #{  SqlSession.locking_enabled? ? ',lock_version ' : ''} FROM sessions WHERE " + conditions)
+       my_session = nil
       # each is used below, as other methods barf on my 64bit linux machine
       # I suspect this to be a bug in mysql-ruby
       result.each do |row|
-        my_session = new(session_id, row[1])
-        my_session.id = row[0]
+        my_session = new(row[0], row[1])
+        my_session.id = row[2]
+        my_session.lock_version = row[3].to_i
       end
       result.free
       my_session
-    end
-
+    end  
     # create a new session with given +session_id+ and +data+
     # and save it immediately to the database
     def create_session(session_id, data)
@@ -87,15 +99,32 @@ class MysqlSession
     if @id
       # if @id is not nil, this is a session already stored in the database
       # update the relevant field using @id as key
-      self.class.query("UPDATE sessions SET `updated_at`=NOW(), `data`='#{Mysql::quote(data)}' WHERE id=#{@id}")
+      if SqlSession.locking_enabled?
+        self.class.query("UPDATE sessions SET `updated_at`=NOW(), `data`='#{Mysql::quote(data)}', lock_version=lock_version+1 WHERE id=#{@id}")
+        @lock_version += 1 #if we are here then we hold a lock on the table - we know our version is up to date
+      else
+        self.class.query("UPDATE sessions SET `updated_at`=NOW(), `data`='#{Mysql::quote(data)}' WHERE id=#{@id}")
+      end
     else
       # if @id is nil, we need to create a new session in the database
       # and set @id to the primary key of the inserted record
       self.class.query("INSERT INTO sessions (`updated_at`, `session_id`, `data`) VALUES (NOW(), '#{@session_id}', '#{Mysql::quote(data)}')")
       @id = connection.insert_id
+      @lock_version = 0
     end
   end
 
+  def update_session_optimistically(data)
+    raise 'cannot update unsaved record optimistically' unless @id
+    connection = self.class.session_connection
+    self.class.query("UPDATE sessions SET `updated_at`=NOW(), `data`='#{Mysql::quote(data)}', `lock_version`=`lock_version`+1 WHERE id=#{@id} AND lock_version=#{@lock_version}")
+    if connection.affected_rows == 1
+      @lock_version += 1
+      true
+    else
+      false
+    end
+  end
   # destroy the current session
   def destroy
     self.class.delete_all("session_id='#{session_id}'")
