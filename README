@@ -59,6 +59,11 @@ For example:
 
 There's no such thing as a free lunch. Whenever you make changes to the session you'll incur a small extra hit: we lock the current session row, we reload it to determine if there is updated data and we merge the changes before doing the actual save. On the flipside, we only save the session at all if changes have been made.
 
+== Optimistic locking
+
+You can enable optimistic locking by adding an integer column called lock_version to your sessions table. It should have a default value of 0. The optimistic locking feature is identical in concept to optimistic locking within Rails and saves a database query in those cases where there is no need to merge changes.
+
+
 == IMPORTANT NOTES
 
 1. You will need the binary drivers for Mysql or Postgresql.
