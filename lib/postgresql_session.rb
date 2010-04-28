@@ -16,13 +16,14 @@ end
 
 class PostgresqlSession
 
-  attr_accessor :id, :session_id, :data
+  attr_accessor :id, :session_id, :data, :lock_version
 
   def initialize(session_id, data)
     @session_id = session_id
     @quoted_session_id = self.class.session_connection.quote(session_id)
     @data = data
     @id = nil
+    @lock_version = 0
   end
 
   class << self
@@ -31,44 +32,41 @@ class PostgresqlSession
     def session_connection
       SqlSession.connection
     end
+    
 
     # try to find a session with a given +session_id+. returns nil if
     # no such session exists. note that we don't retrieve
     # +created_at+ and +updated_at+ as they are not accessed anywhyere
     # outside this class.
+    
     def find_session(session_id, lock = false)
       connection = session_connection
-      quoted_session_id = connection.quote(session_id)
-      result = connection.query("SELECT id, data FROM sessions WHERE session_id=#{quoted_session_id} LIMIT 1"  + (lock ? ' FOR UPDATE' : '') )
-      my_session = nil
-
-      if result[0] && result[0].size == 2
-        my_session = new(session_id, result[0][1])
-        my_session.id = result[0][0]
-      end
-
-      result.clear
-      my_session
+      find("session_id=#{connection.quote session_id} LIMIT 1" + (lock ? ' FOR UPDATE' : ''))
     end
-
+    
     def find_by_primary_id(primary_key_id, lock = false)
       if primary_key_id
-        connection = session_connection
-        quoted_session_id = connection.quote(session_id)
-        result = connection.query("SELECT session_id, data FROM sessions WHERE id=#{primary_key_id} LIMIT 1"  + (lock ? ' FOR UPDATE' : '') )
-        my_session = nil
-
-        if result[0] && result[0].size == 2
-          my_session = new(result[0][0], result[0][1])
-          my_session.id =primary_key_id
-        end
-
-        result.clear
-        my_session
+        find("id='#{primary_key_id}'" + (lock ? ' FOR UPDATE' : ''))
       else
         nil
       end
     end
+    
+    def find(conditions)
+      connection = session_connection
+      result = connection.query("SELECT session_id, data,id #{  SqlSession.locking_enabled? ? ',lock_version ' : ''} FROM sessions WHERE " + conditions)
+      my_session = nil
+      expected_columns = SqlSession.locking_enabled? ? 4 : 3
+      
+      if result[0] && result[0].size == expected_columns
+       my_session = new(result[0][0], result[0][1])
+        my_session.id = result[0][2]
+        my_session.lock_version = result[0][3].to_i
+      end
+      result.clear
+      my_session
+    end
+    
     # create a new session with given +session_id+ and +data+
     # and save it immediately to the database
     def create_session(session_id, data)
@@ -97,15 +95,34 @@ class PostgresqlSession
     if @id
       # if @id is not nil, this is a session already stored in the database
       # update the relevant field using @id as key
-      connection.query("UPDATE sessions SET \"updated_at\"=NOW(), \"data\"=#{quoted_data} WHERE id=#{@id}")
+      if SqlSession.locking_enabled?
+        connection.query("UPDATE sessions SET \"updated_at\"=NOW(), \"data\"=#{quoted_data}, lock_version=lock_version+1 WHERE id=#{@id}")
+        @lock_version += 1 #if we are here then we hold a lock on the table - we know our version is up to date
+      else
+        connection.query("UPDATE sessions SET \"updated_at\"=NOW(), \"data\"=#{quoted_data} WHERE id=#{@id}")
+      end  
     else
       # if @id is nil, we need to create a new session in the database
       # and set @id to the primary key of the inserted record
       connection.query("INSERT INTO sessions (\"updated_at\", \"session_id\", \"data\") VALUES (NOW(), #{@quoted_session_id}, #{quoted_data})")
       @id = connection.lastval rescue connection.query("select lastval()")[0][0].to_i
+      @lock_version = 0
     end
   end
 
+
+  def update_session_optimistically(data)
+    raise 'cannot update unsaved record optimistically' unless @id
+    connection = self.class.session_connection
+    quoted_data = connection.quote(data)
+    result = connection.execute("UPDATE sessions SET \"updated_at\"=NOW(), \"data\"=#{quoted_data}, lock_version=lock_version+1 WHERE id=#{@id} AND lock_version=#{@lock_version}")
+    if result.cmd_tuples == 1
+      @lock_version += 1
+      true
+    else
+      false
+    end
+  end
   # destroy the current session
   def destroy
     self.class.delete_all("session_id=#{@quoted_session_id}")

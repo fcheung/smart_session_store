@@ -83,18 +83,20 @@ class SmartSessionTest < ActiveSupport::TestCase
   #These databases handle the uniquequess contrain differently
   #
   def test_duplicate_on_first_insert_with_locking
-    with_locking do
-      duped_env = @env.dup
-      base_session = SessionHash.new(SmartSessionStoreApp, duped_env)
-      base_session.send :load!
+    reset_transaction do
+      with_locking do
+        duped_env = @env.dup
+        base_session = SessionHash.new(SmartSessionStoreApp, duped_env)
+        base_session.send :load!
 
-      setup_base_session {|s| s[:name] = 'fred'}
+        setup_base_session {|s| s[:name] = 'fred'}
 
-      base_session[:foo] = 'bar'
-      SmartSessionStoreApp.send :set_session, duped_env, '123456', base_session.to_hash
+        base_session[:foo] = 'bar'
+        SmartSessionStoreApp.send :set_session, duped_env, '123456', base_session.to_hash
 
-      assert_final_session :foo => 'bar', :name => 'fred'
+        assert_final_session :foo => 'bar', :name => 'fred'
 
+      end
     end
   end
 
@@ -133,8 +135,10 @@ class SmartSessionTest < ActiveSupport::TestCase
   end
   
   def test_simultaneous_access_session_not_created_with_locking
-    with_locking do
-      test_simultaneous_access_session_not_created
+    reset_transaction do
+      with_locking do
+        test_simultaneous_access_session_not_created
+      end
     end
   end
   
@@ -298,6 +302,18 @@ class SmartSessionTest < ActiveSupport::TestCase
     SmartSessionStoreApp.send :set_session, first_env, '123456', first_session.to_hash
     SmartSessionStoreApp.send :set_session, second_env, '123456', second_session.to_hash
     
+  end
+  
+  def reset_transaction
+    #this is needed for postgres: some tests knacker the current transaction (because a unique insert fails)
+    #although we rollback our transaction, the plugin code doesn't know about the transaction created by the test harness
+    begin
+      SqlSession.connection.rollback_db_transaction
+      SqlSession.connection.decrement_open_transactions
+      yield
+    ensure
+      SqlSession.delete_all
+    end
   end
 end
 
