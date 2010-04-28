@@ -14,12 +14,14 @@ require 'sqlite3'
 # you will need to change the SQL statments in the code.
 
 class SqliteSession
-  attr_accessor :id, :session_id, :data
+  attr_accessor :id, :session_id, :data, :lock_version
 
   def initialize(session_id, data)
     @session_id = session_id
     @data = data
     @id = nil
+    @lock_version = 0
+    
   end
 
   class << self
@@ -29,40 +31,45 @@ class SqliteSession
       SqlSession.connection.instance_variable_get(:@connection)
     end
 
+    def query(sql)
+      connection = session_connection
+      begin
+        connection.query sql
+      rescue Exception => e
+        message = "#{e.class.name}: #{e.message}: #{sql}"
+        raise ActiveRecord::StatementInvalid, message
+      end
+    end
+    
     # try to find a session with a given +session_id+. returns nil if
     # no such session exists. note that we don't retrieve
     # +created_at+ and +updated_at+ as they are not accessed anywhyere
     # outside this class
     def find_session(session_id, lock = false)
-      connection = session_connection
-      session_id = SQLite3::Database.quote(session_id)
-      result = connection.execute("SELECT id, data FROM sessions WHERE `session_id`='#{session_id}' LIMIT 1")
-      my_session = nil
-      # each is used below, as other methods barf on my 64bit linux machine
-      # I suspect this to be a bug in sqlite-ruby
-      result.each do |row|
-        my_session = new(session_id, row[1])
-        my_session.id = row[0]
-      end
-#      result.free
-      my_session
+      find("`session_id`='#{SQLite3::Database.quote session_id}' LIMIT 1" )
     end
-
+    
     def find_by_primary_id(primary_key_id, lock = false)
       if primary_key_id
-        connection = session_connection
-        result = connection.execute("SELECT session_id, data FROM sessions WHERE `id`='#{primary_key_id}'")
-        my_session = nil
-        # each is used below, as other methods barf on my 64bit linux machine
-        # I suspect this to be a bug in mysql-ruby
-        result.each do |row|
-          my_session = new(row[0], row[1])
-          my_session.id = primary_key_id
-        end
-        my_session
+        find("`id`='#{primary_key_id}'" )
       else
         nil
       end
+    end
+    
+    def find(conditions)
+      connection = session_connection
+      result = query("SELECT session_id, data,id #{  SqlSession.locking_enabled? ? ',lock_version ' : ''} FROM sessions WHERE " + conditions)
+      my_session = nil
+      # each is used below, as other methods barf on my 64bit linux machine
+      # I suspect this to be a bug in mysql-ruby
+      result.each do |row|
+        my_session = new(row[0], row[1])
+        my_session.id = row[2]
+        my_session.lock_version = row[3].to_i
+      end
+            
+      my_session
     end
     
     # create a new session with given +session_id+ and +data+
@@ -92,15 +99,34 @@ class SqliteSession
     if @id
       # if @id is not nil, this is a session already stored in the database
       # update the relevant field using @id as key
-      connection.execute("UPDATE sessions SET `updated_at`=datetime('now'), `data`='#{SQLite3::Database.quote(data)}' WHERE id=#{@id}")
+      if SqlSession.locking_enabled?
+        @lock_version += 1 #if we are here then we hold a lock on the table - we know our version is up to date
+        self.class.query("UPDATE sessions SET `updated_at`=datetime('now'), `data`='#{SQLite3::Database.quote(data)}', lock_version=lock_version+1 WHERE id=#{@id}")
+      else
+        self.class.query("UPDATE sessions SET `updated_at`=datetime('now'), `data`='#{SQLite3::Database.quote(data)}' WHERE id=#{@id}")
+      end
     else
       # if @id is nil, we need to create a new session in the database
       # and set @id to the primary key of the inserted record
-      connection.execute("INSERT INTO sessions ('id', `updated_at`, `session_id`, `data`) VALUES (NULL, datetime('now'), '#{@session_id}', '#{SQLite3::Database.quote(data)}')")
+      self.class.query("INSERT INTO sessions ('id', `updated_at`, `session_id`, `data`) VALUES (NULL, datetime('now'), '#{@session_id}', '#{SQLite3::Database.quote(data)}')")
       @id = connection.last_insert_row_id()
+      @lock_version = 0
+      
     end
   end
 
+  def update_session_optimistically(data)
+    raise 'cannot update unsaved record optimistically' unless @id
+    connection = self.class.session_connection
+    self.class.query("UPDATE sessions SET `updated_at`=datetime('now'), `data`='#{SQLite3::Database.quote(data)}', `lock_version`=`lock_version`+1 WHERE id=#{@id} AND lock_version=#{@lock_version}")
+    if connection.changes == 1
+      @lock_version += 1
+      true
+    else
+      false
+    end
+  end
+  
   # destroy the current session
   def destroy
     connection = SqlSession.connection.instance_variable_get(:@connection)

@@ -1,6 +1,6 @@
 sqlite3:
   :adapter: sqlite3
-  :dbfile: smart_session_test.sqlite3.db
+  :database: smart_session_test.sqlite3.db
   
 mysql:
   :adapter: mysql

@@ -7,6 +7,13 @@ module SessionSmarts
     Marshal.load(Base64.decode64(data))
   end
   
+  
+  def exception_is_unique_index_violation(e)
+    e =~ /Duplicate entry/ || #mysql
+    e =~ /duplicate key value violates unique constraint/ || #postgres
+    e =~ /column session_id is not unique/ #sqlite3
+  end
+  
   def save_session(session, data)
     original_data = unmarshalize(session.data)
     original_marshalled_data = session.data
@@ -28,7 +35,7 @@ module SessionSmarts
           session.update_session(marshalize(data))
         end
       rescue ActiveRecord::StatementInvalid => e
-        if e.message =~ /Duplicate entry/
+        if exception_is_unique_index_violation e.message
           fresh_session = get_fresh_session session, false
           session,data = merge_sessions fresh_session, session, original_marshalled_data, changed_keys, deleted_keys, data
           retry
@@ -43,7 +50,7 @@ module SessionSmarts
           session.update_session(marshalize(data))
         end
       rescue ActiveRecord::StatementInvalid => e
-        if e.message =~ /Duplicate entry/
+        if exception_is_unique_index_violation e.message
           retry
         end
         raise

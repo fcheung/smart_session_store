@@ -36,7 +36,7 @@ class SmartSessionTest < ActiveSupport::TestCase
     SmartSessionStore.session_class = TEST_SESSION_CLASS
     SmartSessionStoreApp.test_proc = nil
   end  
-
+  
 
   def test_optimistic_locking_should_merge_if_row_data_has_not_changed_but_version_has
     with_locking do
@@ -80,7 +80,8 @@ class SmartSessionTest < ActiveSupport::TestCase
     end
   end
   
-  
+  #These databases handle the uniquequess contrain differently
+  #
   def test_duplicate_on_first_insert_with_locking
     with_locking do
       duped_env = @env.dup
@@ -96,99 +97,107 @@ class SmartSessionTest < ActiveSupport::TestCase
 
     end
   end
+
+  if ENV['DATABASE'] != 'sqlite3' #throws SQLite3::BusyException: database is locked because of sqlite3's concurrency
+    def test_duplicate_on_first_insert
+  #craziness with threads is to escape the transaction created for us. This 
+  #does mean that if this test screws up cruft will be left in the sessions table
+      main_test = Thread.new do
+        duped_env = @env.dup
+        base_session = SessionHash.new(SmartSessionStoreApp, duped_env)
+        base_session.send :load!
+
+        SmartSessionStoreApp.test_proc = lambda do 
+
+          #we want this to happen inside a transaction other than the original (as it would happen in real life. this is a bit of a hack), so we use a separate thread
+          t = Thread.new do
+            SmartSessionStoreApp.test_proc = nil
+            another_env = @env.dup 
   
-  def test_duplicate_on_first_insert
-#craziness with threads is to escape the transaction created for us. This 
-#does mean that if this test screws up cruft will be left in the sessions table
-    main_test = Thread.new do
+            other_session = SessionHash.new(SmartSessionStoreApp, another_env)
+            other_session.send :load!
+            other_session[:name] = 'fred'
+    
+            SmartSessionStoreApp.send :set_session, another_env, '123456', other_session.to_hash
+          end
+          t.join
+        end
+        base_session[:foo] = 'bar'
+        SmartSessionStoreApp.send :set_session, duped_env, '123456', base_session.to_hash
+
+        assert_final_session :foo => 'bar', :name => 'fred'
+        SqlSession.delete_all #because we mess with transactions
+      end
+      main_test.join
+    end
+  end
+  
+  def test_simultaneous_access_session_not_created_with_locking
+    with_locking do
+      test_simultaneous_access_session_not_created
+    end
+  end
+  
+  def test_optimisic_locking_not_used_for_first_save
+    with_locking do
+      base_session = SessionHash.new(SmartSessionStoreApp, @env)
+      base_session.send :load!
+  
+      assert_equal 0, @env[SmartSessionStore::SESSION_RECORD_KEY].lock_version
+      TEST_SESSION_CLASS.expects(:update_session_optimistically).never
+      SmartSessionStoreApp.send :set_session, @env, '123456', base_session.to_hash
+    end
+  end
+  
+  def test_optimisic_locking_counter_incremented
+    with_locking do
       duped_env = @env.dup
       base_session = SessionHash.new(SmartSessionStoreApp, duped_env)
       base_session.send :load!
-
-      SmartSessionStoreApp.test_proc = lambda do 
-
-        #we want this to happen inside a transaction other than the original (as it would happen in real life. this is a bit of a hack), so we use a separate thread
-        t = Thread.new do
-          SmartSessionStoreApp.test_proc = nil
-          another_env = @env.dup 
-    
-          other_session = SessionHash.new(SmartSessionStoreApp, another_env)
-          other_session.send :load!
-          other_session[:name] = 'fred'
-      
-          SmartSessionStoreApp.send :set_session, another_env, '123456', other_session.to_hash
-        end
-        t.join
-      end
-      base_session[:foo] = 'bar'
+      base_session[:last_viewed_page] = 'woof'
+  
       SmartSessionStoreApp.send :set_session, duped_env, '123456', base_session.to_hash
-
-      assert_final_session :foo => 'bar', :name => 'fred'
-      SqlSession.delete_all #because we mess with transactions
+      assert_equal 0, duped_env[SmartSessionStore::SESSION_RECORD_KEY].lock_version
+      base_session[:last_viewed_page] = 'home'
+      SmartSessionStoreApp.send :set_session, duped_env, '123456', base_session.to_hash
+  
+      
+      session_record = TEST_SESSION_CLASS.find_session '123456'
+      assert_equal 1, session_record.lock_version
+      assert_equal 1, duped_env[SmartSessionStore::SESSION_RECORD_KEY].lock_version
+    
+      SqlSession.connection.execute 'update sessions set lock_version = lock_version + 1'
+  
+      base_session[:last_viewed_page] = 'news'
+      SmartSessionStoreApp.send :set_session, duped_env, '123456', base_session.to_hash
+  
+      session_record = TEST_SESSION_CLASS.find_session '123456'
+      assert_equal 3, session_record.lock_version
+      assert_equal 3, duped_env[SmartSessionStore::SESSION_RECORD_KEY].lock_version
+  
+      assert_final_session :last_viewed_page => 'news'
+  
+      duped_env = @env.dup
+      base_session = SessionHash.new(SmartSessionStoreApp, duped_env)
+      base_session.send :load!
+      assert_equal 3, duped_env[SmartSessionStore::SESSION_RECORD_KEY].lock_version
     end
-    main_test.join
-  end
-    
-    def test_optimisic_locking_not_used_for_first_save
-      with_locking do
-        base_session = SessionHash.new(SmartSessionStoreApp, @env)
-        base_session.send :load!
-    
-        assert_equal 0, @env[SmartSessionStore::SESSION_RECORD_KEY].lock_version
-        TEST_SESSION_CLASS.expects(:update_session_optimistically).never
-        SmartSessionStoreApp.send :set_session, @env, '123456', base_session.to_hash
-      end
+  end  
+  
+  def test_simultaneous_access_session_already_created
+    setup_base_session do |base_session|
+      base_session[:last_viewed_page] = 'home'
     end
-    
-    def test_optimisic_locking_counter_incremented  
-      with_locking do
-        duped_env = @env.dup
-        base_session = SessionHash.new(SmartSessionStoreApp, duped_env)
-        base_session.send :load!
-        base_session[:last_viewed_page] = 'woof'
-    
-        SmartSessionStoreApp.send :set_session, duped_env, '123456', base_session.to_hash
-        assert_equal 0, duped_env[SmartSessionStore::SESSION_RECORD_KEY].lock_version
-        base_session[:last_viewed_page] = 'home'
-        SmartSessionStoreApp.send :set_session, duped_env, '123456', base_session.to_hash
-    
         
-        session_record = TEST_SESSION_CLASS.find_session '123456'
-        assert_equal 1, session_record.lock_version
-        assert_equal 1, duped_env[SmartSessionStore::SESSION_RECORD_KEY].lock_version
-      
-        SqlSession.connection.execute 'update sessions set lock_version = lock_version + 1'
-    
-        base_session[:last_viewed_page] = 'news'
-        SmartSessionStoreApp.send :set_session, duped_env, '123456', base_session.to_hash
-    
-        session_record = TEST_SESSION_CLASS.find_session '123456'
-        assert_equal 3, session_record.lock_version
-        assert_equal 3, duped_env[SmartSessionStore::SESSION_RECORD_KEY].lock_version
-    
-        assert_final_session :last_viewed_page => 'news'
-    
-        duped_env = @env.dup
-        base_session = SessionHash.new(SmartSessionStoreApp, duped_env)
-        base_session.send :load!
-        assert_equal 3, duped_env[SmartSessionStore::SESSION_RECORD_KEY].lock_version
-      end
-    end  
-    
-    def test_simultaneous_access_session_already_created
-      setup_base_session do |base_session|
-        base_session[:last_viewed_page] = 'home'
-      end
-          
-      do_simultaneous_session_access do |first_data, second_data|
-        first_data[:user_id] = 123
-        first_data[:last_viewed_page] = 'news'
-        second_data[:favourite_food] = 'pizza'
-      end
-      
-      assert_final_session :user_id => 123, :favourite_food => 'pizza', :last_viewed_page => 'news'
+    do_simultaneous_session_access do |first_data, second_data|
+      first_data[:user_id] = 123
+      first_data[:last_viewed_page] = 'news'
+      second_data[:favourite_food] = 'pizza'
     end
     
+    assert_final_session :user_id => 123, :favourite_food => 'pizza', :last_viewed_page => 'news'
+  end
+  
   def test_simultaneous_access_session_already_created_with_locking
     with_locking do
       test_simultaneous_access_session_already_created
@@ -204,12 +213,7 @@ class SmartSessionTest < ActiveSupport::TestCase
     assert_final_session :user_id => 123, :favourite_food => 'pizza'
   end
   
-  def test_simultaneous_access_session_not_created_with_locking
-    with_locking do
-      test_simultaneous_access_session_not_created
-    end
-  end
-  
+
   def test_simultaneous_access_delete_keys
     
     setup_base_session do |base_session|
