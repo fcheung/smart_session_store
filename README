@@ -61,7 +61,7 @@ There's no such thing as a free lunch. Whenever you make changes to the session 
 
 == Optimistic locking
 
-You can enable optimistic locking by adding an integer column called lock_version to your sessions table. It should have a default value of 0. The optimistic locking feature is identical in concept to optimistic locking within Rails and saves a database query in those cases where there is no need to merge changes.
+You can enable optimistic locking by adding an integer column called lock_version to your sessions table. It should have a default value of 0. The optimistic locking feature is identical in concept to optimistic locking within Rails and saves a database query in those cases where there is no need to merge changes, which is usually the most common case.
 
 
 == IMPORTANT NOTES
