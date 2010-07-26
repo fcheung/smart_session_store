@@ -42,7 +42,7 @@ class SmartSessionStore < ActionController::Session::AbstractStore
       env[SESSION_RECORD_KEY] = session
     end
 
-    return true
+    return sid
   end
 
   def get_session_model(env, sid)
