@@ -49,6 +49,7 @@ ActiveRecord::Base.establish_connection(ActiveRecord::Base.configurations['test'
 
 TEST_SESSION_CLASS = case database_type
   when 'mysql' then MysqlSession
+  when 'mysql2' then Mysql2Session
   when 'postgresql' then PostgresqlSession
   when 'sqlite3' then SqliteSession
 end

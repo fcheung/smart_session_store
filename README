@@ -17,7 +17,8 @@ Finally, depending on your database type, add
 
     SmartSessionStore.session_class = MysqlSession
 or
-
+    SmartSessionStore.session_class = Mysql2Session
+or
     SmartSessionStore.session_class = PostgresqlSession
 or
     SmartSessionStore.session_class = SqliteSession
@@ -74,6 +75,7 @@ You can enable optimistic locking by adding an integer column called lock_versio
    * pg (0.7.9.2008.10.13) with PostgreSQL 8.3
    * ruby-mysql 2.7.1 with Mysql 4.1
    * ruby-mysql 2.7.2 with Mysql 5.0
+   * mysql2 ~>0.2.7 with Mysql 5.0
 
 2. Tests have been done with SqlLiteSession, SqlSession, PostgresqlSession
    and MysqlSession. Feedback would be very much appreciated.

@@ -9,6 +9,13 @@ mysql:
   :password:
   :database: smart_session
 
+mysql2:
+  :adapter: mysql2
+  :host: localhost
+  :username: smart_session
+  :password:
+  :database: smart_session
+
 postgresql:
   :adapter: postgresql
   :username: smart_session
