@@ -57,7 +57,13 @@ class SmartSessionStore < ActionController::Session::AbstractStore
     @@session_class.find_session(id) ||
       @@session_class.create_session(id, marshalize({}))
   end
-    
+  
+  # Rails 2.3.14 needs this
+  def destroy(env)
+    if (sid = current_session_id(env)).present? && session = find_session(sid)
+      session.destroy
+    end
+  end
 end
 
 __END__
