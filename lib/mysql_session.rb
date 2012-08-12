@@ -108,7 +108,7 @@ class MysqlSession
     else
       # if @id is nil, we need to create a new session in the database
       # and set @id to the primary key of the inserted record
-      self.class.query("INSERT INTO sessions (`updated_at`, `session_id`, `data`) VALUES (NOW(), '#{@session_id}', '#{Mysql::quote(data)}')")
+      self.class.query("INSERT INTO sessions (`created_at`, `updated_at`, `session_id`, `data`) VALUES (NOW(), NOW(), '#{@session_id}', '#{Mysql::quote(data)}')")
       @id = connection.insert_id
       @lock_version = 0
     end
