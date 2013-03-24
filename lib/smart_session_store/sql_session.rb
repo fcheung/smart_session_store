@@ -4,7 +4,7 @@
 # +SmartSessionStore+.
 module SmartSessionStore
   class SqlSession < ActiveRecord::Base
-    set_table_name :sessions
+    self.table_name = 'sessions'
     # this class should not be reloaded
     def self.reloadable?
       false
