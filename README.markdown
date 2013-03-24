@@ -1,6 +1,6 @@
-== SmartSession
-
-[![Build Status](https://travis-ci.org/[fcheung]/[smart_session_store].png)](https://travis-ci.org/[fcheung]/[smart_session_store])
+SmartSession
+============
+[![Build Status](https://travis-ci.org/fcheung/smart_session_store.png)](https://travis-ci.org/fcheung/smart_session_store)
 
 A session store that avoids the pitfalls usually associated with concurrent access to the session (see http://www.paulbutcher.com/2007/05/race-conditions-in-rails-sessions-and-how-to-fix-them/)
 
@@ -8,16 +8,19 @@ Derived from SqlSessionStore, see http://railsexpress.de/blog/articles/2005/12/1
 
 Requires rails 3 or higher.
 
-== Step 1
+Installation
+==========
 
+Step 1
+-------
 Add the gem to your gemfile
 
-== Step 2
-
+Step 2
+-------
 Generate your sessions table using rake db:sessions:create
 
-== Step 3
-
+Step 3
+-------
 Add the code below in an initializer
 
     
@@ -32,8 +35,8 @@ Depending on your database type, add
 after the initializer section in environment.rb
 
 
-== Step 4 (optional)
-
+Step 4 (optional)
+-------
 If you want to use a database separate from your default one to store
 your sessions, specify a configuration in your database.yml file (say
 sessions), and establish the connection on SqlSession in
@@ -41,8 +44,8 @@ environment.rb:
 
    SmartSession::SqlSession.establish_connection :sessions
 
-== Testing
-
+Testing
+=======
 To run tests with a certain database, set the DATABASE environment variable.
 You may need to configure the database.yml or your database server so that the correct connection options are used.
 
@@ -52,17 +55,18 @@ For example:
    rake test DATABASE=postgresql
 
 
-== Performance Implications
+Performance Implications
+========
 
-There's no such thing as a free lunch. Whenever you make changes to the session you'll incur a small extra hit: we lock the current session row, we reload it to determine if there is updated data and we merge the changes before doing the actual save. On the flipside, we only save the session at all if changes have been made.
+There's no such thing as a free lunch. On top of the overhead of a database backed session store, whenever you make changes to the session you'll incur a small extra hit: we lock the current session row, we reload it to determine if there is updated data and we merge the changes before doing the actual save. On the flipside, we only save the session at all if changes have been made.
 
-== Optimistic locking
-
+Optimistic locking
+=======
 You can enable optimistic locking by adding an integer column called lock_version to your sessions table. It should have a default value of 0. The optimistic locking feature is identical in concept to optimistic locking within Rails and saves a database query in those cases where there is no need to merge changes, which is usually the most common case.
 
 
-== IMPORTANT NOTES
-
+IMPORTANT NOTES
+=======
 1. You will need the binary drivers for Mysql or Postgresql.
    These have been verified to work:
 
