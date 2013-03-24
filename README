@@ -1,8 +1,10 @@
 == SmartSessionStore
 
-A session store that avoids the pitfalls usually associated with concurrent access to the session (see http://www.texperts.com/2007/05/01/race-conditions-in-rails-sessions-and-how-to-fix-them/)
+A session store that avoids the pitfalls usually associated with concurrent access to the session (see http://www.google.co.uk/url?sa=t&rct=j&q=&esrc=s&source=web&cd=1&ved=0CDIQFjAA&url=http%3A%2F%2Fwww.paulbutcher.com%2F2007%2F05%2Frace-conditions-in-rails-sessions-and-how-to-fix-them%2F&ei=ZflOUaLALM-2hAertYHACQ&usg=AFQjCNE8xfUktENwvxe7vySyUg4kXO7LEA&bvm=bv.44158598,d.ZG4/)
 
 Derived from SqlSessionStore, see http://railsexpress.de/blog/articles/2005/12/19/roll-your-own-sql-session-store
+
+Requires rails 3 or higher.
 
 == Step 1
 
@@ -11,39 +13,27 @@ Generate your sessions table using rake db:sessions:create
 == Step 2
 
 Add the code below in an initializer
-  ActionController::Base.session_store = :smart_session_store
 
-Finally, depending on your database type, add
+    
+    TestApp::Application.config.session_store :smart_session_store, key: '_test_app_session'
 
-    SmartSessionStore.session_class = MysqlSession
-or
-    SmartSessionStore.session_class = Mysql2Session
-or
-    SmartSessionStore.session_class = PostgresqlSession
-or
-    SmartSessionStore.session_class = SqliteSession
+Depending on your database type, add
+
+    SmartSessionStore.session_class = :mysql2
+    SmartSessionStore.session_class = :postgresql
+    SmartSessionStore.session_class = :sqlite3
 
 after the initializer section in environment.rb
 
-== Step 3
 
-If you are running Rails 2.3 or later you need to tell Rails that your session store uses the database. If you don't then your app will use up all the connections in its connection pool and many requests will suffer from a 5 second delay. The Rails initializer special cases the ActiveRecordStore session store (in initialize_database_middleware). You can either change references there to SmartSessionStore or you can put
-
-ActionController::Dispatcher.middleware.delete "ActiveRecord::ConnectionAdapters::ConnectionManagement"
-ActionController::Dispatcher.middleware.delete "ActiveRecord::QueryCache"
-ActionController::Dispatcher.middleware.insert_before :"SmartSessionStore", ActiveRecord::ConnectionAdapters::ConnectionManagement
-ActionController::Dispatcher.middleware.insert_before :"SmartSessionStore", ActiveRecord::QueryCache
-
-at the bottom of environment.rb
-
-== Step 4 (optional)
+== Step 3 (optional)
 
 If you want to use a database separate from your default one to store
 your sessions, specify a configuration in your database.yml file (say
 sessions), and establish the connection on SqlSession in
 environment.rb:
 
-   SqlSession.establish_connection :sessions
+   SmartSessionStore::SqlSession.establish_connection :sessions
 
 == Testing
 
@@ -76,6 +66,7 @@ You can enable optimistic locking by adding an integer column called lock_versio
    * ruby-mysql 2.7.1 with Mysql 4.1
    * ruby-mysql 2.7.2 with Mysql 5.0
    * mysql2 ~>0.2.7 with Mysql 5.0
+   * mysql2 ~>0.3.1 with Mysql 5.1
 
 2. Tests have been done with SqlLiteSession, SqlSession, PostgresqlSession
-   and MysqlSession. Feedback would be very much appreciated.
+   and Mysql2Session. Feedback would be very much appreciated.
