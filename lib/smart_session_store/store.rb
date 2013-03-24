@@ -35,6 +35,8 @@ module SmartSessionStore
         when :sqlite
           require 'smart_session_store/sqlite'
           SqliteSession
+        else
+          raise ArgumentError, "Unknown session class #{symbol_or_class}"
         end
       else
         @@session_class = symbol_or_class
