@@ -1,48 +1,57 @@
+require 'sqlite3'
 
-# PostgresqlSession is a down to the bare metal session store
-# implementation to be used with +SmartSessionStore+. It is much faster
+# allow access to the real Sqlite connection
+#class ActiveRecord::ConnectionAdapters::SQLiteAdapter
+#  attr_reader :connection
+#end
+
+# SqliteSession is a down to the bare metal session store
+# implementation to be used with +SmartSession+. It is much faster
 # than the default ActiveRecord implementation.
 #
 # The implementation assumes that the table column names are 'id',
-# 'session_id', 'data', 'created_at' and 'updated_at'. If you want use
-# other names, you will need to change the SQL statments in the code.
-#
-# This table layout is compatible with ActiveRecordStore.
-
-module SmartSessionStore
-  class PostgresqlSession
-
+# 'data', 'created_at' and 'updated_at'. If you want use other names,
+# you will need to change the SQL statments in the code.
+module SmartSession
+  class SqliteSession
     attr_accessor :id, :session_id, :data, :lock_version
 
     def initialize(session_id, data)
       @session_id = session_id
-      @quoted_session_id = self.class.session_connection.quote(session_id)
       @data = data
       @id = nil
       @lock_version = 0
+      
     end
 
     class << self
 
-      # retrieve the session table connection
+      # retrieve the session table connection and get the 'raw' Sqlite connection from it
       def session_connection
-        SmartSessionStore::SqlSession.connection
+        SmartSession::SqlSession.connection.instance_variable_get(:@connection)
+      end
+
+      def query(sql)
+        connection = session_connection
+        begin
+          connection.query sql
+        rescue Exception => e
+          message = "#{e.class.name}: #{e.message}: #{sql}"
+          raise ActiveRecord::StatementInvalid, message
+        end
       end
       
-
       # try to find a session with a given +session_id+. returns nil if
       # no such session exists. note that we don't retrieve
       # +created_at+ and +updated_at+ as they are not accessed anywhyere
-      # outside this class.
-      
+      # outside this class
       def find_session(session_id, lock = false)
-        connection = session_connection
-        find("session_id=#{connection.quote session_id} LIMIT 1" + (lock ? ' FOR UPDATE' : ''))
+        find("`session_id`='#{SQLite3::Database.quote session_id}' LIMIT 1" )
       end
       
       def find_by_primary_id(primary_key_id, lock = false)
         if primary_key_id
-          find("id='#{primary_key_id}'" + (lock ? ' FOR UPDATE' : ''))
+          find("`id`='#{primary_key_id}'" )
         else
           nil
         end
@@ -50,22 +59,23 @@ module SmartSessionStore
       
       def find(conditions)
         connection = session_connection
-        result = connection.query("SELECT session_id, data,id #{  SmartSessionStore::SqlSession.locking_enabled? ? ',lock_version ' : ''} FROM sessions WHERE " + conditions)
+        result = query("SELECT session_id, data,id #{  SmartSession::SqlSession.locking_enabled? ? ',lock_version ' : ''} FROM sessions WHERE " + conditions)
         my_session = nil
-        expected_columns = SmartSessionStore::SqlSession.locking_enabled? ? 4 : 3
-        
-        if result[0] && result[0].size == expected_columns
-         my_session = new(result[0][0], result[0][1])
-          my_session.id = result[0][2]
-          my_session.lock_version = result[0][3].to_i
+        # each is used below, as other methods barf on my 64bit linux machine
+        # I suspect this to be a bug in mysql-ruby
+        result.each do |row|
+          my_session = new(row[0], row[1])
+          my_session.id = row[2]
+          my_session.lock_version = row[3].to_i
         end
-        result.clear
+              
         my_session
       end
       
       # create a new session with given +session_id+ and +data+
       # and save it immediately to the database
       def create_session(session_id, data)
+        session_id = SQLite3::Database.quote(session_id)
         new_session = new(session_id, data)
       end
 
@@ -73,9 +83,9 @@ module SmartSessionStore
       # caller's responsibility to pass a valid sql condition
       def delete_all(condition=nil)
         if condition
-          session_connection.query("DELETE FROM sessions WHERE #{condition}")
+          session_connection.execute("DELETE FROM sessions WHERE #{condition}")
         else
-          session_connection.query("DELETE FROM sessions")
+          session_connection.execute("DELETE FROM sessions")
         end
       end
 
@@ -85,43 +95,42 @@ module SmartSessionStore
     # unlike the default implementation using ActiveRecord, updating of
     # column `updated_at` will be done by the database itself
     def update_session(data)
-      connection = self.class.session_connection
-      quoted_data = connection.quote(data)
-
+      connection = SmartSession::SqlSession.connection.instance_variable_get(:@connection) #self.class.session_connection
       if @id
         # if @id is not nil, this is a session already stored in the database
         # update the relevant field using @id as key
-        if SmartSessionStore::SqlSession.locking_enabled?
-          connection.query("UPDATE sessions SET \"updated_at\"=NOW(), \"data\"=#{quoted_data}, lock_version=lock_version+1 WHERE id=#{@id}")
+        if SqlSession.locking_enabled?
           @lock_version += 1 #if we are here then we hold a lock on the table - we know our version is up to date
+          self.class.query("UPDATE sessions SET `updated_at`=datetime('now'), `data`='#{SQLite3::Database.quote(data)}', lock_version=lock_version+1 WHERE id=#{@id}")
         else
-          connection.query("UPDATE sessions SET \"updated_at\"=NOW(), \"data\"=#{quoted_data} WHERE id=#{@id}")
-        end  
+          self.class.query("UPDATE sessions SET `updated_at`=datetime('now'), `data`='#{SQLite3::Database.quote(data)}' WHERE id=#{@id}")
+        end
       else
         # if @id is nil, we need to create a new session in the database
         # and set @id to the primary key of the inserted record
-        connection.query("INSERT INTO sessions (\"created_at\", \"updated_at\", \"session_id\", \"data\") VALUES (NOW(), NOW(), #{@quoted_session_id}, #{quoted_data})")
-        @id = connection.lastval rescue connection.query("select lastval()")[0][0].to_i
+        self.class.query("INSERT INTO sessions ('id', `created_at`, `updated_at`, `session_id`, `data`) VALUES (NULL, datetime('now'), datetime('now'), '#{@session_id}', '#{SQLite3::Database.quote(data)}')")
+        @id = connection.last_insert_row_id()
         @lock_version = 0
+        
       end
     end
-
 
     def update_session_optimistically(data)
       raise 'cannot update unsaved record optimistically' unless @id
       connection = self.class.session_connection
-      quoted_data = connection.quote(data)
-      result = connection.execute("UPDATE sessions SET \"updated_at\"=NOW(), \"data\"=#{quoted_data}, lock_version=lock_version+1 WHERE id=#{@id} AND lock_version=#{@lock_version}")
-      if result.cmd_tuples == 1
+      self.class.query("UPDATE sessions SET `updated_at`=datetime('now'), `data`='#{SQLite3::Database.quote(data)}', `lock_version`=`lock_version`+1 WHERE id=#{@id} AND lock_version=#{@lock_version}")
+      if connection.changes == 1
         @lock_version += 1
         true
       else
         false
       end
     end
+    
     # destroy the current session
     def destroy
-      self.class.delete_all("session_id=#{@quoted_session_id}")
+      connection = SmartSession::SqlSession.connection.instance_variable_get(:@connection)
+      connection.execute("delete from sessions where session_id='#{session_id}'")
     end
 
   end
@@ -131,8 +140,8 @@ __END__
 
 # This software is released under the MIT license
 #
-# Copyright (c) 2006 Stefan Kaes
-# Copyright (c) 2007 Frederick Cheung
+# Copyright (c) 2005, 2006 Stefan Kaes
+# Copyright (c) 2006 Ted X Toth
 
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the

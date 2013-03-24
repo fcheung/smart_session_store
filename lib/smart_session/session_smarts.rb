@@ -1,4 +1,4 @@
-module SmartSessionStore
+module SmartSession
   module SessionSmarts
     def marshalize(data)
       Base64.encode64(Marshal.dump(data))
@@ -25,7 +25,7 @@ module SmartSessionStore
       
       return nil if changed_keys.empty? && deleted_keys.empty?
 
-      if SmartSessionStore::SqlSession.locking_enabled?
+      if SmartSession::SqlSession.locking_enabled?
         begin
           if session.id
             while !session.update_session_optimistically(marshalize(data))        
@@ -45,7 +45,7 @@ module SmartSessionStore
         end  
       else
         begin
-          SmartSessionStore::SqlSession.transaction do
+          SmartSession::SqlSession.transaction do
             fresh_session = get_fresh_session session, true
             session, data = merge_sessions fresh_session, session, original_marshalled_data, changed_keys, deleted_keys, data
             session.update_session(marshalize(data))
@@ -74,7 +74,7 @@ module SmartSessionStore
     def merge_sessions fresh_session, session, original_marshalled_data, changed_keys, deleted_keys, data
       if fresh_session
         data_changed = fresh_session.data != original_marshalled_data
-        if (data_changed || SmartSessionStore::SqlSession.locking_enabled?) && fresh_data = unmarshalize(fresh_session.data)
+        if (data_changed || SmartSession::SqlSession.locking_enabled?) && fresh_data = unmarshalize(fresh_session.data)
           deleted_keys.each {|k| fresh_data.delete k}
           changed_keys.each {|k| fresh_data[k] = data[k]}
           data = fresh_data

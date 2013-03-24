@@ -1,4 +1,4 @@
-== SmartSessionStore
+== SmartSession
 
 A session store that avoids the pitfalls usually associated with concurrent access to the session (see http://www.google.co.uk/url?sa=t&rct=j&q=&esrc=s&source=web&cd=1&ved=0CDIQFjAA&url=http%3A%2F%2Fwww.paulbutcher.com%2F2007%2F05%2Frace-conditions-in-rails-sessions-and-how-to-fix-them%2F&ei=ZflOUaLALM-2hAertYHACQ&usg=AFQjCNE8xfUktENwvxe7vySyUg4kXO7LEA&bvm=bv.44158598,d.ZG4/)
 
@@ -19,13 +19,13 @@ Generate your sessions table using rake db:sessions:create
 Add the code below in an initializer
 
     
-    YourApp::Application.config.session_store SmartSessionStore::Store, key: '_test_app_session'
+    YourApp::Application.config.session_store SmartSession::Store, key: '_test_app_session'
 
 Depending on your database type, add
 
-    SmartSessionStore::Store.session_class = :mysql2
-    SmartSessionStore::Store.session_class = :postgresql
-    SmartSessionStore::Store.session_class = :sqlite
+    SmartSession::Store.session_class = :mysql2
+    SmartSession::Store.session_class = :postgresql
+    SmartSession::Store.session_class = :sqlite
 
 after the initializer section in environment.rb
 
@@ -37,7 +37,7 @@ your sessions, specify a configuration in your database.yml file (say
 sessions), and establish the connection on SqlSession in
 environment.rb:
 
-   SmartSessionStore::SqlSession.establish_connection :sessions
+   SmartSession::SqlSession.establish_connection :sessions
 
 == Testing
 

@@ -4,14 +4,14 @@ ActiveRecord::ConnectionAdapters::Mysql2Adapter.class_eval do
 end
 
 # Mysql2Session is a down to the bare metal session store
-# implementation to be used with +SmartSessionStore+. It is much faster
+# implementation to be used with +SmartSession+. It is much faster
 # than the default ActiveRecord implementation.
 #
 # The implementation assumes that the table column names are 'id',
 # 'data', 'created_at' and 'updated_at'. If you want use other names,
 # you will need to change the SQL statments in the code.
 
-module SmartSessionStore 
+module SmartSession 
   class Mysql2Session
 
     attr_accessor :id, :session_id, :data, :lock_version
@@ -27,11 +27,11 @@ module SmartSessionStore
 
       # retrieve the session table connection and get the 'raw' Mysql connection from it
       def session_connection
-        SmartSessionStore::SqlSession.connection.connection
+        SmartSession::SqlSession.connection.connection
       end
       
       def quote(arg)
-        SmartSessionStore::SqlSession.connection.quote arg
+        SmartSession::SqlSession.connection.quote arg
       end
       
       def escape(arg)
@@ -70,7 +70,7 @@ module SmartSessionStore
       def find(conditions)
         connection = session_connection
         # connection.query_with_result = true
-        result = query("SELECT session_id, data,id #{  SmartSessionStore::SqlSession.locking_enabled? ? ',lock_version ' : ''} FROM sessions WHERE " + conditions)
+        result = query("SELECT session_id, data,id #{  SmartSession::SqlSession.locking_enabled? ? ',lock_version ' : ''} FROM sessions WHERE " + conditions)
          my_session = nil
         # each is used below, as other methods barf on my 64bit linux machine
         # I suspect this to be a bug in mysql-ruby
@@ -110,7 +110,7 @@ module SmartSessionStore
       if @id
         # if @id is not nil, this is a session already stored in the database
         # update the relevant field using @id as key
-        if SmartSessionStore::SqlSession.locking_enabled?
+        if SmartSession::SqlSession.locking_enabled?
           self.class.query("UPDATE sessions SET `updated_at`=NOW(), `data`=#{self.class.quote(data)}, lock_version=lock_version+1 WHERE id=#{@id}")
           @lock_version += 1 #if we are here then we hold a lock on the table - we know our version is up to date
         else

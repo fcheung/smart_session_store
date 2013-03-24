@@ -1,16 +1,16 @@
 
 require 'base64'
-# +SmartSessionStore+ is a session store that strives to correctly handle session storage in the face of multiple
+# +SmartSession+ is a session store that strives to correctly handle session storage in the face of multiple
 # concurrent actions accessing the session. It is derived from Stephen Kaes' +SqlSessionStore+, a stripped down,
 # optimized for speed version of class +ActiveRecordStore+.
 #
-module SmartSessionStore
+module SmartSession
 
   class Store < ActionDispatch::Session::AbstractStore
-    include SmartSessionStore::SessionSmarts
+    include SmartSession::SessionSmarts
     
     # The class to be used for creating, retrieving and updating sessions.
-    # Defaults to SmartSessionStore::Session, which is derived from +ActiveRecord::Base+.
+    # Defaults to SmartSession::Session, which is derived from +ActiveRecord::Base+.
     #
     # In order to achieve acceptable performance you should implement
     # your own session class, similar to the one provided for Myqsl.
@@ -19,7 +19,7 @@ module SmartSessionStore
     # +update_session+ and +destroy+ are required. See file +mysql_session.rb+.
 
     cattr_accessor :session_class
-    @@session_class = SmartSessionStore::SqlSession
+    @@session_class = SmartSession::SqlSession
 
     SESSION_RECORD_KEY = 'rack.session.record'.freeze
       
@@ -27,13 +27,13 @@ module SmartSessionStore
       if symbol_or_class.is_a?(Symbol)
         @@session_class = case symbol_or_class
         when :mysql2
-          require 'smart_session_store/mysql2'
+          require 'smart_session/mysql2'
           Mysql2Session
         when :postgres
-          require 'smart_session_store/postgres'
+          require 'smart_session/postgres'
           PostgresqlSession
         when :sqlite
-          require 'smart_session_store/sqlite'
+          require 'smart_session/sqlite'
           SqliteSession
         else
           raise ArgumentError, "Unknown session class #{symbol_or_class}"

@@ -1,11 +1,11 @@
 # -*- encoding: utf-8 -*-
 lib = File.expand_path('../lib', __FILE__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
-require 'smart_session_store/version'
+require 'smart_session/version'
 
 Gem::Specification.new do |gem|
-  gem.name          = "smart_session_store"
-  gem.version       = SmartSessionStore::VERSION
+  gem.name          = "smart_session"
+  gem.version       = SmartSession::VERSION
   gem.authors       = ["Frederick Cheung"]
   gem.email         = ["frederick.cheung@gmail.com"]
   gem.description   = %q{A session store that avoids the pitfalls usually associated with concurrent access to the session}

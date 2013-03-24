@@ -11,7 +11,7 @@ require 'active_support/test_case'
 require 'active_record/fixtures'
 require 'action_pack'
 require 'action_controller'
-require 'smart_session_store'
+require 'smart_session'
 
 
 if defined? ActiveRecord::TestFixtures # this is rails 2.3+
@@ -22,10 +22,10 @@ if defined? ActiveRecord::TestFixtures # this is rails 2.3+
     self.use_transactional_fixtures = true
 
     def with_locking
-      SmartSessionStore::SqlSession.lock_optimistically = true
+      SmartSession::SqlSession.lock_optimistically = true
       yield
     ensure
-      SmartSessionStore::SqlSession.lock_optimistically = false
+      SmartSession::SqlSession.lock_optimistically = false
     end
   end
 
@@ -47,18 +47,8 @@ ActiveRecord::Base.configurations = {'test' => config[database_type]}
 ActiveRecord::Base.establish_connection(ActiveRecord::Base.configurations['test'])
 
 
-TEST_SESSION_CLASS = case database_type
-when 'mysql2' then 
-  require 'smart_session_store/mysql2'
-  SmartSessionStore::Mysql2Session
-when 'postgresql' then 
-  require 'smart_session_store/postgresql'
-  SmartSessionStore::PostgresqlSession
-when 'sqlite3' then 
-  require 'smart_session_store/sqlite'
-  SmartSessionStore::SqliteSession
-end
+TEST_SESSION_CLASS =  database_type.to_sym
 
 load(File.dirname(__FILE__) + "/schema.rb")
-SmartSessionStore::SqlSession.lock_optimistically = false
+SmartSession::SqlSession.lock_optimistically = false
 

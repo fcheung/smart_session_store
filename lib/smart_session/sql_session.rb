@@ -1,8 +1,8 @@
 # An ActiveRecord class which corresponds to the database table
 # +sessions+. Functions +find_session+, +create_session+,
 # +update_session+ and +destroy+ constitute the interface to class
-# +SmartSessionStore+.
-module SmartSessionStore
+# +SmartSession+.
+module SmartSession
   class SqlSession < ActiveRecord::Base
     self.table_name = 'sessions'
     # this class should not be reloaded

@@ -1,6 +1,6 @@
 require File.join(File.dirname(__FILE__), '../test_helper')
 
-SmartSessionStore::Store.class_eval do
+SmartSession::Store.class_eval do
   attr_accessor :test_proc
   def get_fresh_session_with_test_support(*args)
     result = get_fresh_session_without_test_support(*args)
@@ -19,22 +19,21 @@ class SmartSessionTest < ActiveSupport::TestCase
   SessionSecret = 'b3c631c314c0bbca50c1b2843150fe33'
 
   SessionHash = Rack::Session::Abstract::SessionHash
-  SmartSessionStoreApp = SmartSessionStore::Store.new(nil, :key => SessionKey, :secret => SessionSecret)
+  SmartSessionApp = SmartSession::Store.new(nil, :key => SessionKey, :secret => SessionSecret)
 
   #short circuit this so that the session id us our static one
-  def SmartSessionStoreApp.load_session(env)
+  def SmartSessionApp.load_session(env)
     sid, session = get_session(env, '123456')
     [sid, session]
   end
   # Replace this with your real tests.
   def setup
     @env = { Rack::Session::Abstract::ENV_SESSION_KEY => '123456',  Rack::Session::Abstract::ENV_SESSION_OPTIONS_KEY => Rack::Session::Abstract::ID::DEFAULT_OPTIONS}
-    SmartSessionStore::Store.session_class = TEST_SESSION_CLASS
-    SmartSessionStoreApp.test_proc = nil
+    SmartSessionApp.test_proc = nil
   end  
   
   def teardown
-    SmartSessionStore::SqlSession.delete_all
+    SmartSession::SqlSession.delete_all
   end
 
   def test_optimistic_locking_should_merge_if_row_data_has_not_changed_but_version_has
@@ -42,16 +41,16 @@ class SmartSessionTest < ActiveSupport::TestCase
       setup_base_session {|s| s[:name] = 'fred'}
 
       duped_env = @env.dup
-      base_session = SessionHash.new(SmartSessionStoreApp, duped_env)
+      base_session = SessionHash.new(SmartSessionApp, duped_env)
       base_session.send :load!
       base_session[:name] = 'bob'
 
       setup_base_session {|s| s[:name] = 'oldfred'}
       setup_base_session {|s| s[:name] = 'fred'}
 
-      SmartSessionStoreApp.send :set_session, duped_env, '123456', base_session.to_hash, {}
+      SmartSessionApp.send :set_session, duped_env, '123456', base_session.to_hash, {}
       assert_final_session 'name' => 'bob'
-      SmartSessionStore::SqlSession.delete_all
+      SmartSession::SqlSession.delete_all
     end
   end
 
@@ -61,7 +60,7 @@ class SmartSessionTest < ActiveSupport::TestCase
       main_test = Thread.new do
         setup_base_session {|s| s[:name] = 'fred'}
         duped_env = @env.dup
-        session = SessionHash.new(SmartSessionStoreApp, duped_env)
+        session = SessionHash.new(SmartSessionApp, duped_env)
         session.send :load!
         session[:user_id] = 123
       
@@ -70,9 +69,9 @@ class SmartSessionTest < ActiveSupport::TestCase
           setup_base_session {|s| s[:age] = 21}
         end
         t.join
-        SmartSessionStoreApp.send :set_session, duped_env, '123456', session.to_hash, {}
+        SmartSessionApp.send :set_session, duped_env, '123456', session.to_hash, {}
         assert_final_session 'age' => 21 , 'name' => 'fred', 'user_id' => 123
-        SmartSessionStore::SqlSession.delete_all
+        SmartSession::SqlSession.delete_all
         
       end
       main_test.join
@@ -85,13 +84,13 @@ class SmartSessionTest < ActiveSupport::TestCase
     reset_transaction do
       with_locking do
         duped_env = @env.dup
-        base_session = SessionHash.new(SmartSessionStoreApp, duped_env)
+        base_session = SessionHash.new(SmartSessionApp, duped_env)
         base_session.send :load!
 
         setup_base_session {|s| s[:name] = 'fred'}
 
         base_session[:foo] = 'bar'
-        SmartSessionStoreApp.send :set_session, duped_env, '123456', base_session.to_hash, {}
+        SmartSessionApp.send :set_session, duped_env, '123456', base_session.to_hash, {}
 
         assert_final_session 'foo' => 'bar', 'name' => 'fred'
 
@@ -105,29 +104,29 @@ class SmartSessionTest < ActiveSupport::TestCase
   #does mean that if this test screws up cruft will be left in the sessions table
       main_test = Thread.new do
         duped_env = @env.dup
-        base_session = SessionHash.new(SmartSessionStoreApp, duped_env)
+        base_session = SessionHash.new(SmartSessionApp, duped_env)
         base_session.send :load!
 
-        SmartSessionStoreApp.test_proc = lambda do 
+        SmartSessionApp.test_proc = lambda do 
 
           #we want this to happen inside a transaction other than the original (as it would happen in real life. this is a bit of a hack), so we use a separate thread
           t = Thread.new do
-            SmartSessionStoreApp.test_proc = nil
+            SmartSessionApp.test_proc = nil
             another_env = @env.dup 
   
-            other_session = SessionHash.new(SmartSessionStoreApp, another_env)
+            other_session = SessionHash.new(SmartSessionApp, another_env)
             other_session.send :load!
             other_session[:name] = 'fred'
     
-            SmartSessionStoreApp.send :set_session, another_env, '123456', other_session.to_hash, {}
+            SmartSessionApp.send :set_session, another_env, '123456', other_session.to_hash, {}
           end
           t.join
         end
         base_session[:foo] = 'bar'
-        SmartSessionStoreApp.send :set_session, duped_env, '123456', base_session.to_hash, {}
+        SmartSessionApp.send :set_session, duped_env, '123456', base_session.to_hash, {}
 
         assert_final_session 'foo' => 'bar', 'name' => 'fred'
-        SmartSessionStore::SqlSession.delete_all #because we mess with transactions
+        SmartSession::SqlSession.delete_all #because we mess with transactions
       end
       main_test.join
     end
@@ -143,47 +142,47 @@ class SmartSessionTest < ActiveSupport::TestCase
   
   def test_optimisic_locking_not_used_for_first_save
     with_locking do
-      base_session = SessionHash.new(SmartSessionStoreApp, @env)
+      base_session = SessionHash.new(SmartSessionApp, @env)
       base_session.send :load!
   
-      assert_equal 0, @env[SmartSessionStore::Store::SESSION_RECORD_KEY].lock_version
-      TEST_SESSION_CLASS.expects(:update_session_optimistically).never
-      SmartSessionStoreApp.send :set_session, @env, '123456', base_session.to_hash, {}
+      assert_equal 0, @env[SmartSession::Store::SESSION_RECORD_KEY].lock_version
+      SmartSession::Store.session_class.expects(:update_session_optimistically).never
+      SmartSessionApp.send :set_session, @env, '123456', base_session.to_hash, {}
     end
   end
   
   def test_optimisic_locking_counter_incremented
     with_locking do
       duped_env = @env.dup
-      base_session = SessionHash.new(SmartSessionStoreApp, duped_env)
+      base_session = SessionHash.new(SmartSessionApp, duped_env)
       base_session.send :load!
       base_session[:last_viewed_page] = 'woof'
   
-      SmartSessionStoreApp.send :set_session, duped_env, '123456', base_session.to_hash, {}
-      assert_equal 0, duped_env[SmartSessionStore::Store::SESSION_RECORD_KEY].lock_version
+      SmartSessionApp.send :set_session, duped_env, '123456', base_session.to_hash, {}
+      assert_equal 0, duped_env[SmartSession::Store::SESSION_RECORD_KEY].lock_version
       base_session[:last_viewed_page] = 'home'
-      SmartSessionStoreApp.send :set_session, duped_env, '123456', base_session.to_hash, {}
+      SmartSessionApp.send :set_session, duped_env, '123456', base_session.to_hash, {}
   
       
-      session_record = TEST_SESSION_CLASS.find_session '123456'
+      session_record = SmartSession::Store.session_class.find_session '123456'
       assert_equal 1, session_record.lock_version
-      assert_equal 1, duped_env[SmartSessionStore::Store::SESSION_RECORD_KEY].lock_version
+      assert_equal 1, duped_env[SmartSession::Store::SESSION_RECORD_KEY].lock_version
     
-      SmartSessionStore::SqlSession.connection.execute 'update sessions set lock_version = lock_version + 1'
+      SmartSession::SqlSession.connection.execute 'update sessions set lock_version = lock_version + 1'
   
       base_session[:last_viewed_page] = 'news'
-      SmartSessionStoreApp.send :set_session, duped_env, '123456', base_session.to_hash, {}
+      SmartSessionApp.send :set_session, duped_env, '123456', base_session.to_hash, {}
   
-      session_record = TEST_SESSION_CLASS.find_session '123456'
+      session_record = SmartSession::Store.session_class.find_session '123456'
       assert_equal 3, session_record.lock_version
-      assert_equal 3, duped_env[SmartSessionStore::Store::SESSION_RECORD_KEY].lock_version
+      assert_equal 3, duped_env[SmartSession::Store::SESSION_RECORD_KEY].lock_version
   
       assert_final_session 'last_viewed_page' => 'news'
   
       duped_env = @env.dup
-      base_session = SessionHash.new(SmartSessionStoreApp, duped_env)
+      base_session = SessionHash.new(SmartSessionApp, duped_env)
       base_session.send :load!
-      assert_equal 3, duped_env[SmartSessionStore::Store::SESSION_RECORD_KEY].lock_version
+      assert_equal 3, duped_env[SmartSession::Store::SESSION_RECORD_KEY].lock_version
     end
   end  
   
@@ -278,28 +277,28 @@ class SmartSessionTest < ActiveSupport::TestCase
   private
   
   def assert_final_session expected
-    consolidated_session = SessionHash.new(SmartSessionStoreApp, @env.dup)
+    consolidated_session = SessionHash.new(SmartSessionApp, @env.dup)
     consolidated_session.send :load!
     assert_equal expected, consolidated_session.to_hash
   end
   
   def setup_base_session
     duped_env = @env.dup
-    base_session = SessionHash.new(SmartSessionStoreApp, duped_env)
+    base_session = SessionHash.new(SmartSessionApp, duped_env)
     base_session.send :load!
     yield base_session if block_given?
-    SmartSessionStoreApp.send :set_session, duped_env, '123456', base_session.to_hash, {}
+    SmartSessionApp.send :set_session, duped_env, '123456', base_session.to_hash, {}
   end
   
   def do_simultaneous_session_access
     first_env = @env.dup
     second_env = @env.dup
-    first_session = SessionHash.new(SmartSessionStoreApp, first_env)
-    second_session = SessionHash.new(SmartSessionStoreApp, second_env)
+    first_session = SessionHash.new(SmartSessionApp, first_env)
+    second_session = SessionHash.new(SmartSessionApp, second_env)
         
     yield first_session, second_session
-    SmartSessionStoreApp.send :set_session, first_env, '123456', first_session.to_hash, {}
-    SmartSessionStoreApp.send :set_session, second_env, '123456', second_session.to_hash, {}
+    SmartSessionApp.send :set_session, first_env, '123456', first_session.to_hash, {}
+    SmartSessionApp.send :set_session, second_env, '123456', second_session.to_hash, {}
     
   end
   
@@ -307,11 +306,11 @@ class SmartSessionTest < ActiveSupport::TestCase
     #this is needed for postgres: some tests knacker the current transaction (because a unique insert fails)
     #although we rollback our transaction, the plugin code doesn't know about the transaction created by the test harness
     begin
-      SmartSessionStore::SqlSession.connection.rollback_db_transaction
-      SmartSessionStore::SqlSession.connection.decrement_open_transactions
+      SmartSession::SqlSession.connection.rollback_db_transaction
+      SmartSession::SqlSession.connection.decrement_open_transactions
       yield
     ensure
-      SmartSessionStore::SqlSession.delete_all
+      SmartSession::SqlSession.delete_all
     end
   end
 end
@@ -321,11 +320,11 @@ end
 class FullStackTest < ActionController::IntegrationTest
 
   def app
-    @app ||= ActionDispatch::Cookies.new(SmartSessionStore::Store.new(@routes))
+    @app ||= ActionDispatch::Cookies.new(SmartSession::Store.new(@routes))
   end    
   
   def teardown
-    SmartSessionStore::SqlSession.delete_all
+    SmartSession::SqlSession.delete_all
   end  
   class TestController < ActionController::Base
 
