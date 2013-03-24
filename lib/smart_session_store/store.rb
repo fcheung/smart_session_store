@@ -34,7 +34,7 @@ module SmartSessionStore
       end
     end
 
-    def set_session(env, sid, session_data)
+    def set_session(env, sid, session_data, options)
       ActiveRecord::Base.silence do
         record = get_session_model(env, sid)
 
@@ -58,11 +58,12 @@ module SmartSessionStore
         @@session_class.create_session(id, marshalize({}))
     end
     
-    # Rails 2.3.14 needs this
-    def destroy(env)
-      if (sid = current_session_id(env)).present? && session = find_session(sid)
-        session.destroy
+    def destroy_session(env, sid, options)
+      if sid = current_session_id(env)
+        get_session_model(env, sid).destroy
+        env[SESSION_RECORD_KEY] = nil
       end
+      generate_sid unless options[:drop]
     end
   end
 end
