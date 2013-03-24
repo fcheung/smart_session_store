@@ -6,7 +6,7 @@ require 'base64'
 #
 module SmartSessionStore
 
-  class Store < ActionController::Session::AbstractStore
+  class Store < ActionDispatch::Session::AbstractStore
     include SmartSessionStore::SessionSmarts
     
     # The class to be used for creating, retrieving and updating sessions.
