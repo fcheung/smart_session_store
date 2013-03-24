@@ -8,9 +8,13 @@ Requires rails 3 or higher.
 
 == Step 1
 
-Generate your sessions table using rake db:sessions:create
+Add the gem to your gemfile
 
 == Step 2
+
+Generate your sessions table using rake db:sessions:create
+
+== Step 3
 
 Add the code below in an initializer
 
@@ -26,7 +30,7 @@ Depending on your database type, add
 after the initializer section in environment.rb
 
 
-== Step 3 (optional)
+== Step 4 (optional)
 
 If you want to use a database separate from your default one to store
 your sessions, specify a configuration in your database.yml file (say
@@ -37,8 +41,8 @@ environment.rb:
 
 == Testing
 
-To run tests with a certain database, set the DATABASE attribute.
-You may need to configure the database.yml or your database server.
+To run tests with a certain database, set the DATABASE environment variable.
+You may need to configure the database.yml or your database server so that the correct connection options are used.
 
 For example:
 
