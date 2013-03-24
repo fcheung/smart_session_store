@@ -108,7 +108,7 @@ module SmartSessionStore
       else
         # if @id is nil, we need to create a new session in the database
         # and set @id to the primary key of the inserted record
-        self.class.query("INSERT INTO sessions ('id', `updated_at`, `session_id`, `data`) VALUES (NULL, datetime('now'), '#{@session_id}', '#{SQLite3::Database.quote(data)}')")
+        self.class.query("INSERT INTO sessions ('id', `created_at`, `updated_at`, `session_id`, `data`) VALUES (NULL, datetime('now'), datetime('now'), '#{@session_id}', '#{SQLite3::Database.quote(data)}')")
         @id = connection.last_insert_row_id()
         @lock_version = 0
         

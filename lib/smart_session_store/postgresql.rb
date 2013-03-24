@@ -100,7 +100,7 @@ module SmartSessionStore
       else
         # if @id is nil, we need to create a new session in the database
         # and set @id to the primary key of the inserted record
-        connection.query("INSERT INTO sessions (\"updated_at\", \"session_id\", \"data\") VALUES (NOW(), #{@quoted_session_id}, #{quoted_data})")
+        connection.query("INSERT INTO sessions (\"created_at\", \"updated_at\", \"session_id\", \"data\") VALUES (NOW(), NOW(), #{@quoted_session_id}, #{quoted_data})")
         @id = connection.lastval rescue connection.query("select lastval()")[0][0].to_i
         @lock_version = 0
       end
