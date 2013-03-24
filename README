@@ -19,13 +19,13 @@ Generate your sessions table using rake db:sessions:create
 Add the code below in an initializer
 
     
-    TestApp::Application.config.session_store :smart_session_store, key: '_test_app_session'
+    YourApp::Application.config.session_store SmartSessionStore::Store, key: '_test_app_session'
 
 Depending on your database type, add
 
-    SmartSessionStore.session_class = :mysql2
-    SmartSessionStore.session_class = :postgresql
-    SmartSessionStore.session_class = :sqlite3
+    SmartSessionStore::Store.session_class = :mysql2
+    SmartSessionStore::Store.session_class = :postgresql
+    SmartSessionStore::Store.session_class = :sqlite
 
 after the initializer section in environment.rb
 
