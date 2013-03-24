@@ -42,7 +42,11 @@ RAILS_DEFAULT_LOGGER = ActiveRecord::Base.logger = Logger.new(File.dirname(__FIL
 
 database_type = ENV['DATABASE'] || 'mysql2'
 
-config = YAML::load(IO.read(File.dirname(__FILE__) + '/database.yml'))
+if ENV['TRAVIS']
+  config = YAML::load(IO.read(File.dirname(__FILE__) + '/database.ci.yml'))
+else
+  config = YAML::load(IO.read(File.dirname(__FILE__) + '/database.yml'))
+end
 ActiveRecord::Base.configurations = {'test' => config[database_type]}
 ActiveRecord::Base.establish_connection(ActiveRecord::Base.configurations['test'])
 

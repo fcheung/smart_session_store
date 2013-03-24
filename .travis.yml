@@ -1,0 +1,8 @@
+language: ruby
+rvm:
+  - 1.9.3
+gemfile: gemfiles/Gemfile.ci
+before_script:
+  - psql -c 'create database smart_session;' -U postgres
+  - mysql -e 'create database smart_session_test;'
+script: "./script/travis.sh"

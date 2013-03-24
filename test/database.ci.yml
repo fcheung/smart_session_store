@@ -5,11 +5,11 @@ sqlite:
 mysql2:
   :adapter: mysql2
   :host: localhost
-  :username: smart_session
+  :username: root
   :password:
   :database: smart_session
 
 postgresql:
   :adapter: postgresql
-  :username: smart_session
+  :username: postgres
   :database: smart_session

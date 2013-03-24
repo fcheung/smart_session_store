@@ -98,7 +98,7 @@ class SmartSessionTest < ActiveSupport::TestCase
     end
   end
 
-  if ENV['DATABASE'] != 'sqlite3' #throws SQLite3::BusyException: database is locked because of sqlite3's concurrency
+  if ENV['DATABASE'] != 'sqlite' #throws SQLite3::BusyException: database is locked because of sqlite3's concurrency
     def test_duplicate_on_first_insert
   #craziness with threads is to escape the transaction created for us. This 
   #does mean that if this test screws up cruft will be left in the sessions table
