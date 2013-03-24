@@ -2,13 +2,6 @@ sqlite3:
   :adapter: sqlite3
   :database: smart_session_test.sqlite3.db
   
-mysql:
-  :adapter: mysql
-  :host: localhost
-  :username: smart_session
-  :password:
-  :database: smart_session
-
 mysql2:
   :adapter: mysql2
   :host: localhost

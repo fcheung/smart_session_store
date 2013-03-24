@@ -1,18 +1,18 @@
-$KCODE = 'u'
-require 'jcode'
 ENV['TZ'] = 'UTC'
 require 'test/unit'
 require 'rubygems'
 require 'active_support'
 require 'active_record'
 require 'active_record/fixtures'
-require 'mocha'
+require 'mocha/setup'
 RAILS_ENV = 'test'
 
 require 'active_support/test_case'
 require 'active_record/fixtures'
 require 'action_pack'
 require 'action_controller'
+require 'smart_session_store'
+
 
 if defined? ActiveRecord::TestFixtures # this is rails 2.3+
   class ActiveSupport::TestCase
@@ -22,10 +22,10 @@ if defined? ActiveRecord::TestFixtures # this is rails 2.3+
     self.use_transactional_fixtures = true
 
     def with_locking
-      SqlSession.lock_optimistically = true
+      SmartSessionStore::SqlSession.lock_optimistically = true
       yield
     ensure
-      SqlSession.lock_optimistically = false
+      SmartSessionStore::SqlSession.lock_optimistically = false
     end
   end
 
@@ -39,21 +39,26 @@ end
 
 
 RAILS_DEFAULT_LOGGER = ActiveRecord::Base.logger = Logger.new(File.dirname(__FILE__) + "/debug.log")
-ActiveSupport::Dependencies.load_paths.unshift(File.dirname(__FILE__)+'/../lib')
 
-database_type = ENV['DATABASE'] || 'mysql'
+database_type = ENV['DATABASE'] || 'mysql2'
 
 config = YAML::load(IO.read(File.dirname(__FILE__) + '/database.yml'))
 ActiveRecord::Base.configurations = {'test' => config[database_type]}
 ActiveRecord::Base.establish_connection(ActiveRecord::Base.configurations['test'])
 
+
 TEST_SESSION_CLASS = case database_type
-  when 'mysql' then MysqlSession
-  when 'mysql2' then Mysql2Session
-  when 'postgresql' then PostgresqlSession
-  when 'sqlite3' then SqliteSession
+when 'mysql2' then 
+  require 'smart_session_store/mysql2'
+  SmartSessionStore::Mysql2Session
+when 'postgresql' then 
+  require 'smart_session_store/postgres'
+  SmartSessionStore::PostgresqlSession
+when 'sqlite3' then 
+  require 'smart_session_store/sqlite'
+  SmartSessionStore::SqliteSession
 end
 
 load(File.dirname(__FILE__) + "/schema.rb")
-SqlSession.lock_optimistically = false
+SmartSessionStore::SqlSession.lock_optimistically = false
 
