@@ -1,7 +1,5 @@
-require 'mysql2'
-
 # allow access to the real Mysql connection
-class ActiveRecord::ConnectionAdapters::Mysql2Adapter
+ActiveRecord::ConnectionAdapters::Mysql2Adapter.class_eval do
   attr_reader :connection
 end
 
