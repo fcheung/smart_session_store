@@ -52,7 +52,7 @@ when 'mysql2' then
   require 'smart_session_store/mysql2'
   SmartSessionStore::Mysql2Session
 when 'postgresql' then 
-  require 'smart_session_store/postgres'
+  require 'smart_session_store/postgresql'
   SmartSessionStore::PostgresqlSession
 when 'sqlite3' then 
   require 'smart_session_store/sqlite'
