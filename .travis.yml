@@ -4,5 +4,5 @@ rvm:
 gemfile: gemfiles/Gemfile.ci
 before_script:
   - "psql -c 'create database smart_session;' -U postgres"
-  - "mysql -u root -e 'create database smart_session_test;'"
+  - "mysql -u root -e 'create database smart_session;'"
 script: "./script/travis.sh"
