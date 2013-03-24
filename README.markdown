@@ -1,5 +1,7 @@
 == SmartSession
 
+[![Build Status](https://travis-ci.org/[fcheung]/[smart_session_store].png)](https://travis-ci.org/[fcheung]/[smart_session_store])
+
 A session store that avoids the pitfalls usually associated with concurrent access to the session (see http://www.paulbutcher.com/2007/05/race-conditions-in-rails-sessions-and-how-to-fix-them/)
 
 Derived from SqlSessionStore, see http://railsexpress.de/blog/articles/2005/12/19/roll-your-own-sql-session-store
