@@ -274,6 +274,16 @@ class SmartSessionTest < ActiveSupport::TestCase
     
   end
   
+  def test_created_at_is_set_on_creation
+    setup_base_session { |session| session[:foo] = "bar" }
+    assert_not_nil(ActiveRecord::Base.connection.select_value "SELECT created_at FROM sessions WHERE session_id = '123456'")
+  end
+  
+  def test_updated_at_is_set_on_creation
+    setup_base_session { |session| session[:foo] = "bar" }
+    assert_not_nil(ActiveRecord::Base.connection.select_value "SELECT updated_at FROM sessions WHERE session_id = '123456'")
+  end
+  
   private
   
   def assert_final_session expected
@@ -431,8 +441,6 @@ class FullStackTest < ActionController::IntegrationTest
       test_getting_session_id
     end
   end
-
-
 
   private
     def with_test_route_set
