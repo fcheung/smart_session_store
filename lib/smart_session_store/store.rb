@@ -23,6 +23,23 @@ module SmartSessionStore
 
     SESSION_RECORD_KEY = 'rack.session.record'.freeze
       
+    def self.session_class= symbol_or_class
+      if symbol_or_class.is_a?(Symbol)
+        @@session_class = case symbol_or_class
+        when :mysql2
+          require 'smart_session_store/mysql2'
+          Mysql2Session
+        when :postgres
+          require 'smart_session_store/postgres'
+          PostgresqlSession
+        when :sqlite
+          require 'smart_session_store/sqlite'
+          SqliteSession
+        end
+      else
+        @@session_class = symbol_or_class
+      end
+    end
     private
     
     def get_session(env, sid)
