@@ -46,7 +46,7 @@ module SmartSessionStore
     end
 
     def get_session_model(env, sid)
-      if env[ENV_SESSION_OPTIONS_KEY][:id].nil?
+      if env[Rack::Session::Abstract::ENV_SESSION_OPTIONS_KEY][:id].nil?
         env[SESSION_RECORD_KEY] = find_session(sid)
       else
         env[SESSION_RECORD_KEY] ||= find_session(sid)
