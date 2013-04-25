@@ -29,7 +29,7 @@ Add the code below in an initializer
 Depending on your database type, add
 
     SmartSession::Store.session_class = :mysql2
-    SmartSession::Store.session_class = :postgresql
+    SmartSession::Store.session_class = :postgres
     SmartSession::Store.session_class = :sqlite
 
 after the initializer section in environment.rb
@@ -52,7 +52,7 @@ You may need to configure the database.yml or your database server so that the c
 For example:
 
    rake test    # defaults to mysql
-   rake test DATABASE=postgresql
+   rake test DATABASE=postgres
 
 
 Performance Implications

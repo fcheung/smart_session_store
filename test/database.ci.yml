@@ -9,7 +9,7 @@ mysql2:
   :password:
   :database: smart_session
 
-postgresql:
+postgres:
   :adapter: postgresql
   :username: postgres
   :database: smart_session
