@@ -284,6 +284,31 @@ class SmartSessionTest < ActiveSupport::TestCase
     assert_not_nil(ActiveRecord::Base.connection.select_value "SELECT updated_at FROM sessions WHERE session_id = '123456'")
   end
   
+  def test_session_destruction_during_processing
+    setup_base_session do |base_session|
+      base_session[:last_viewed_page] = 'home'
+    end
+   
+    first_env = @env.dup
+    second_env = @env.dup
+    first_session = SessionHash.new(SmartSessionApp, first_env)
+    second_session = SessionHash.new(SmartSessionApp, second_env)
+    first_session[:user_id] = 123
+    first_session[:last_viewed_page] = 'news'
+        
+    SmartSessionApp.send :destroy_session, second_env, '123456', {}
+    SmartSessionApp.send :set_session, first_env, '123456', first_session.to_hash, {}
+
+    consolidated_session = SessionHash.new(SmartSessionApp, @env.dup)
+    consolidated_session.send :load!
+    assert_equal({}, consolidated_session.to_hash)
+  end
+
+  def test_session_destruction_during_processing_with_locking
+    with_locking do
+      test_session_destruction_during_processing
+    end
+  end
   private
   
   def assert_final_session expected
@@ -441,6 +466,8 @@ class FullStackTest < ActionController::IntegrationTest
       test_getting_session_id
     end
   end
+
+
 
   private
     def with_test_route_set
