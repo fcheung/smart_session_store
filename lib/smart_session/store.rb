@@ -30,7 +30,7 @@ module SmartSession
           require 'smart_session/mysql2'
           Mysql2Session
         when :postgres
-          require 'smart_session/postgres'
+          require 'smart_session/postgresql'
           PostgresqlSession
         when :sqlite
           require 'smart_session/sqlite'
