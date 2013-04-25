@@ -52,7 +52,7 @@ ActiveRecord::Base.establish_connection(ActiveRecord::Base.configurations['test'
 
 
 TEST_SESSION_CLASS =  database_type.to_sym
-
+SmartSession::Store.session_class = TEST_SESSION_CLASS
 load(File.dirname(__FILE__) + "/schema.rb")
 SmartSession::SqlSession.lock_optimistically = false
 
