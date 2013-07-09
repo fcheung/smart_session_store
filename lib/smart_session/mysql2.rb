@@ -70,7 +70,7 @@ module SmartSession
       def find(conditions)
         connection = session_connection
         # connection.query_with_result = true
-        result = query("SELECT session_id, data,id #{  SmartSession::SqlSession.locking_enabled? ? ',lock_version ' : ''} FROM sessions WHERE " + conditions)
+        result = query("SELECT session_id, data,id #{  SmartSession::SqlSession.locking_enabled? ? ',lock_version ' : ''} FROM #{SmartSession::SqlSession.table_name} WHERE " + conditions)
          my_session = nil
         # each is used below, as other methods barf on my 64bit linux machine
         # I suspect this to be a bug in mysql-ruby
@@ -94,9 +94,9 @@ module SmartSession
       # caller's responsibility to pass a valid sql condition
       def delete_all(condition=nil)
         if condition
-          query("DELETE FROM sessions WHERE #{condition}")
+          query("DELETE FROM #{SmartSession::SqlSession.table_name} WHERE #{condition}")
         else
-          query("DELETE FROM sessions")
+          query("DELETE FROM #{SmartSession::SqlSession.table_name}")
         end
       end
 
@@ -111,15 +111,15 @@ module SmartSession
         # if @id is not nil, this is a session already stored in the database
         # update the relevant field using @id as key
         if SmartSession::SqlSession.locking_enabled?
-          self.class.query("UPDATE sessions SET `updated_at`=NOW(), `data`=#{self.class.quote(data)}, lock_version=lock_version+1 WHERE id=#{@id}")
+          self.class.query("UPDATE #{SmartSession::SqlSession.table_name} SET `updated_at`=NOW(), `data`=#{self.class.quote(data)}, lock_version=lock_version+1 WHERE id=#{@id}")
           @lock_version += 1 #if we are here then we hold a lock on the table - we know our version is up to date
         else
-          self.class.query("UPDATE sessions SET `updated_at`=NOW(), `data`=#{self.class.quote(data)} WHERE id=#{@id}")
+          self.class.query("UPDATE #{SmartSession::SqlSession.table_name} SET `updated_at`=NOW(), `data`=#{self.class.quote(data)} WHERE id=#{@id}")
         end
       else
         # if @id is nil, we need to create a new session in the database
         # and set @id to the primary key of the inserted record
-        self.class.query("INSERT INTO sessions (`created_at`, `updated_at`, `session_id`, `data`) VALUES (NOW(), NOW(), '#{@session_id}', #{self.class.quote(data)})")
+        self.class.query("INSERT INTO #{SmartSession::SqlSession.table_name} (`created_at`, `updated_at`, `session_id`, `data`) VALUES (NOW(), NOW(), '#{@session_id}', #{self.class.quote(data)})")
         @id = connection.last_id
         @lock_version = 0
       end
@@ -128,7 +128,7 @@ module SmartSession
     def update_session_optimistically(data)
       raise 'cannot update unsaved record optimistically' unless @id
       connection = self.class.session_connection
-      self.class.query("UPDATE sessions SET `updated_at`=NOW(), `data`=#{self.class.quote(data)}, `lock_version`=`lock_version`+1 WHERE id=#{@id} AND lock_version=#{@lock_version}")
+      self.class.query("UPDATE #{SmartSession::SqlSession.table_name} SET `updated_at`=NOW(), `data`=#{self.class.quote(data)}, `lock_version`=`lock_version`+1 WHERE id=#{@id} AND lock_version=#{@lock_version}")
       if connection.affected_rows == 1
         @lock_version += 1
         true

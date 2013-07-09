@@ -11,8 +11,8 @@ Gem::Specification.new do |gem|
   gem.description   = %q{A session store that avoids the pitfalls usually associated with concurrent access to the session}
   gem.summary       = %q{A session store that avoids the pitfalls usually associated with concurrent access to the session}
   gem.homepage      = ""
-  gem.add_dependency "actionpack", '>=3.0.0'
-  gem.add_dependency "activerecord", '>=3.0.0'
+  gem.add_dependency "actionpack", '>=3.0.0', '< 4.0.0'
+  gem.add_dependency "activerecord", '>=3.0.0', '< 4.0.0'
   gem.add_development_dependency "mysql2"
   gem.add_development_dependency "sqlite3"
   gem.add_development_dependency "pg"
