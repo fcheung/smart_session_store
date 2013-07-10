@@ -1,5 +1,7 @@
 require File.join(File.dirname(__FILE__), '../test_helper')
 
+load(File.join(File.dirname(__FILE__), "../schema.rb"))
+
 SmartSession::Store.class_eval do
   attr_accessor :test_proc
   def get_fresh_session_with_test_support(*args)
