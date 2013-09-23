@@ -1,5 +1,7 @@
 require File.join(File.dirname(__FILE__), '../test_helper')
 
+load(File.join(File.dirname(__FILE__), "../schema.rb"))
+
 SmartSession::Store.class_eval do
   attr_accessor :test_proc
   def get_fresh_session_with_test_support(*args)
@@ -168,7 +170,7 @@ class SmartSessionTest < ActiveSupport::TestCase
       assert_equal 1, session_record.lock_version
       assert_equal 1, duped_env[SmartSession::Store::SESSION_RECORD_KEY].lock_version
     
-      SmartSession::SqlSession.connection.execute 'update sessions set lock_version = lock_version + 1'
+      SmartSession::SqlSession.connection.execute "update #{SmartSession::SqlSession.table_name} set lock_version = lock_version + 1"
   
       base_session[:last_viewed_page] = 'news'
       SmartSessionApp.send :set_session, duped_env, '123456', base_session.to_hash, {}
@@ -276,12 +278,12 @@ class SmartSessionTest < ActiveSupport::TestCase
   
   def test_created_at_is_set_on_creation
     setup_base_session { |session| session[:foo] = "bar" }
-    assert_not_nil(ActiveRecord::Base.connection.select_value "SELECT created_at FROM sessions WHERE session_id = '123456'")
+    assert_not_nil(ActiveRecord::Base.connection.select_value "SELECT created_at FROM #{SmartSession::SqlSession.table_name} WHERE session_id = '123456'")
   end
   
   def test_updated_at_is_set_on_creation
     setup_base_session { |session| session[:foo] = "bar" }
-    assert_not_nil(ActiveRecord::Base.connection.select_value "SELECT updated_at FROM sessions WHERE session_id = '123456'")
+    assert_not_nil(ActiveRecord::Base.connection.select_value "SELECT updated_at FROM #{SmartSession::SqlSession.table_name} WHERE session_id = '123456'")
   end
   
   def test_session_destruction_during_processing
@@ -466,8 +468,6 @@ class FullStackTest < ActionController::IntegrationTest
       test_getting_session_id
     end
   end
-
-
 
   private
     def with_test_route_set
