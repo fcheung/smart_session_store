@@ -14,6 +14,7 @@ Installation
 Step 1
 -------
 Add the gem to your gemfile
+gem 'smart_session'
 
 Step 2
 -------
